@@ -589,40 +589,74 @@ $.global.FormaEngine = (function () {
         return { w1: w1, h1: h1, w2: w2, h2: h2 };
     }
 
-    function cleanGridNumbers(doc) {
+    function isItemInRoots(it, roots) {
+        if (!it || !roots) return false;
+        var curr = it;
+        while (curr) {
+            for (var r = 0; r < roots.length; r++) {
+                if (curr === roots[r]) return true;
+            }
+            if (curr.parent && curr.parent.typename !== "Layer" && curr.parent.typename !== "Document") {
+                curr = curr.parent;
+            } else {
+                break;
+            }
+        }
+        return false;
+    }
+
+    function isPureCyanTemplateNumber(it) {
+        if (!it) return false;
+        if (it.clipping) return false; // NEVER touch clipping masks or clipped items!
+        if (it.typename === "PlacedItem" || it.typename === "RasterItem" || it.typename === "MeshItem") return false;
+
+        if (it.typename === "PathItem" || it.typename === "CompoundPathItem") {
+            try {
+                var c = null;
+                if (it.stroked && it.strokeColor) c = it.strokeColor;
+                else if (it.filled && it.fillColor) c = it.fillColor;
+                if (c && c.typename === "CMYKColor") {
+                    // Pure Cyan: Cyan >= 70, Magenta <= 2, Yellow <= 2, Black <= 2
+                    if (c.cyan >= 70 && c.magenta <= 2 && c.yellow <= 2 && c.black <= 2) {
+                        return true;
+                    }
+                }
+            } catch (e) {}
+        }
+        return false;
+    }
+
+    function cleanGridNumbers(doc, userSelItems) {
         var removed = 0;
 
         function checkAndRemove(it) {
             if (!it) return false;
             if (it.guides) return false;
+            // NEVER touch anything that is part of the user's selected artwork!
+            if (userSelItems && isItemInRoots(it, userSelItems)) return false;
+
             var gb;
             try { gb = it.geometricBounds; } catch (e) { return false; }
             if (!gb) return false;
             var w = Math.abs(gb[2] - gb[0]);
             var h = Math.abs(gb[1] - gb[3]);
-            if (w < 15 || h < 15 || w > 350 || h > 350) return false;
+            // Template guide numbers are small (15-180 pt)
+            if (w < 15 || h < 15 || w > 180 || h > 180) return false;
+
+            // Must strictly be pure cyan guide stroke/fill!
+            if (!isPureCyanTemplateNumber(it)) return false;
 
             var cx = (gb[0] + gb[2]) / 2;
             var cy = (gb[1] + gb[3]) / 2;
 
             for (var p = 1; p <= 16; p++) {
                 var tgt = ALBUM_TARGETS[p];
-                if (Math.abs(cx - tgt.cx) < 120 && Math.abs(cy - tgt.cy) < 120) {
-                    var isCyan = false;
+                if (Math.abs(cx - tgt.cx) < 100 && Math.abs(cy - tgt.cy) < 100) {
                     try {
-                        var col = it.stroked ? it.strokeColor : (it.filled ? it.fillColor : null);
-                        if (col && col.typename === "CMYKColor") {
-                            if (col.cyan > 40 && col.magenta < 30 && col.yellow < 30) isCyan = true;
-                        }
-                    } catch (eCol) {}
-
-                    if (isCyan || (Math.abs(cx - tgt.cx) < 60 && Math.abs(cy - tgt.cy) < 60)) {
-                        try {
-                            it.remove();
-                            removed++;
-                            return true;
-                        } catch (eRem) {}
-                    }
+                        it.remove();
+                        removed++;
+                        return true;
+                    } catch (eRem) {}
                 }
             }
             return false;
@@ -632,6 +666,9 @@ $.global.FormaEngine = (function () {
             if (!parent || !parent.pageItems) return;
             for (var i = parent.pageItems.length - 1; i >= 0; i--) {
                 var it = parent.pageItems[i];
+                // NEVER scan inside user selected items!
+                if (userSelItems && isItemInRoots(it, userSelItems)) continue;
+
                 if (it.typename === "GroupItem") {
                     if (checkAndRemove(it)) continue;
                     scanItems(it);
@@ -714,9 +751,9 @@ $.global.FormaEngine = (function () {
                     });
                 }
 
-                // If Album 16, clean template grid numbers and ensure 16 artboards exist
+                // If Album 16, clean template grid numbers (protecting user's selected artwork!)
                 if (params.sectionType === "album_16") {
-                    cleanGridNumbers(doc);
+                    cleanGridNumbers(doc, sel);
                     if (doc.artboards.length < 16) {
                         ensureAlbum16Artboards(doc);
                     }
@@ -782,10 +819,6 @@ $.global.FormaEngine = (function () {
                             placeOnArtboard(pageItem, destAB, rot);
                         }
                     }
-                }
-
-                if (params.sectionType === "album_16") {
-                    cleanGridNumbers(doc);
                 }
 
                 if (params.jobNameBn && params.jobNameBn.length > 0) {
@@ -1049,13 +1082,7 @@ $.global.FormaEngine = (function () {
                 try { app.executeMenuCommand("unlockAll"); } catch (e) {}
                 try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-                // 2. Clean Template Grid Numbers (remove stray template numbers from artwork)
-                var cleanedGrid = cleanGridNumbers(doc);
-                if (cleanedGrid > 0) {
-                    report.push("টেমপ্লেট গ্রিড নম্বর অপসারিত (" + cleanedGrid + " টি)");
-                }
-
-                // 3. Update Bottom Plate / Slug Text with Bengali Job Name
+                // 2. Update Bottom Plate / Slug Text with Bengali Job Name
                 if (jobNameBn && jobNameBn.length > 0) {
                     var slugUpdated = updatePlateSlugText(doc, jobNameBn);
                     if (slugUpdated) {
@@ -1178,28 +1205,15 @@ $.global.FormaEngine = (function () {
                 if (embedMissing > 0) embedReport += " (" + embedMissing + " টি লিংক মিসিং)";
                 report.push(embedReport);
 
-                // 5. Select All and Create Outlines
-                doc.selection = null;
-                app.executeMenuCommand("selectall");
-                try {
-                    app.executeMenuCommand("outline");
-                } catch(e) {}
-
-                // Double check any remaining text frames
+                // 5. Safe Text Outlining (Native DOM iteration - preserves all clipping masks & frames)
+                var outlineCount = 0;
                 for (var remTf = doc.textFrames.length - 1; remTf >= 0; remTf--) {
                     try {
                         doc.textFrames[remTf].createOutline();
-                    } catch(eRem) {}
+                        outlineCount++;
+                    } catch (eRem) {}
                 }
-                report.push("টেক্সট: সম্পূর্ণ আউটলাইন সম্পন্ন");
-
-                // 6. Expand Appearances
-                doc.selection = null;
-                app.executeMenuCommand("selectall");
-                try {
-                    app.executeMenuCommand("expandStyle");
-                    report.push("এক্সপ্যান্ড: অ্যাপিয়ারেন্স এক্সপ্যান্ড সম্পন্ন");
-                } catch(e) {}
+                report.push("টেক্সট: সম্পূর্ণ ফন্ট আউটলাইন সম্পন্ন (" + outlineCount + " টি)");
 
                 app.redraw();
                 return toJson({

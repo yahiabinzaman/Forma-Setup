@@ -108,10 +108,6 @@
         }
 
         // Inner / Note: 1 big sheet split into left & right halves
-        doc.selection = null;
-        app.executeMenuCommand("selectall");
-        app.executeMenuCommand("group");
-
         while (doc.artboards.length > 1) {
             doc.artboards[doc.artboards.length - 1].remove();
         }
