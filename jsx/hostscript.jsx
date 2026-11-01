@@ -605,24 +605,29 @@ $.global.FormaEngine = (function () {
         return false;
     }
 
-    function isPureCyanTemplateNumber(it) {
+    function isTemplateNumberCandidate(it) {
         if (!it) return false;
-        if (it.clipping) return false; // NEVER touch clipping masks or clipped items!
-        if (it.typename === "PlacedItem" || it.typename === "RasterItem" || it.typename === "MeshItem") return false;
+        if (it.guides || it.clipping || it.clipped) return false;
+        var tn = it.typename;
+        if (tn === "PlacedItem" || tn === "RasterItem" || tn === "MeshItem" || tn === "TextFrame") return false;
 
-        if (it.typename === "PathItem" || it.typename === "CompoundPathItem") {
-            try {
-                var c = null;
-                if (it.stroked && it.strokeColor) c = it.strokeColor;
-                else if (it.filled && it.fillColor) c = it.fillColor;
-                if (c && c.typename === "CMYKColor") {
-                    // Pure Cyan: Cyan >= 70, Magenta <= 2, Yellow <= 2, Black <= 2
-                    if (c.cyan >= 70 && c.magenta <= 2 && c.yellow <= 2 && c.black <= 2) {
-                        return true;
-                    }
+        if (tn === "GroupItem") {
+            // Must have 1 to 5 children, none of which are images, text, or clipping masks
+            if (!it.pageItems || it.pageItems.length === 0 || it.pageItems.length > 5) return false;
+            for (var g = 0; g < it.pageItems.length; g++) {
+                var ch = it.pageItems[g];
+                var ctn = ch.typename;
+                if (ctn === "PlacedItem" || ctn === "RasterItem" || ctn === "MeshItem" || ctn === "TextFrame" || ch.clipping || ch.clipped) {
+                    return false;
                 }
-            } catch (e) {}
+            }
+            return true;
         }
+
+        if (tn === "CompoundPathItem" || tn === "PathItem") {
+            return true;
+        }
+
         return false;
     }
 
@@ -631,27 +636,27 @@ $.global.FormaEngine = (function () {
 
         function checkAndRemove(it) {
             if (!it) return false;
-            if (it.guides) return false;
             // NEVER touch anything that is part of the user's selected artwork!
             if (userSelItems && isItemInRoots(it, userSelItems)) return false;
+
+            if (!isTemplateNumberCandidate(it)) return false;
 
             var gb;
             try { gb = it.geometricBounds; } catch (e) { return false; }
             if (!gb) return false;
             var w = Math.abs(gb[2] - gb[0]);
             var h = Math.abs(gb[1] - gb[3]);
-            // Template guide numbers are small (15-180 pt)
-            if (w < 15 || h < 15 || w > 180 || h > 180) return false;
 
-            // Must strictly be pure cyan guide stroke/fill!
-            if (!isPureCyanTemplateNumber(it)) return false;
+            // Template guide numbers are 30-260 pt wide, 50-220 pt tall
+            if (w < 30 || w > 260 || h < 50 || h > 220) return false;
 
             var cx = (gb[0] + gb[2]) / 2;
             var cy = (gb[1] + gb[3]) / 2;
 
             for (var p = 1; p <= 16; p++) {
                 var tgt = ALBUM_TARGETS[p];
-                if (Math.abs(cx - tgt.cx) < 100 && Math.abs(cy - tgt.cy) < 100) {
+                // Match slot center within 40 pt
+                if (Math.abs(cx - tgt.cx) < 40 && Math.abs(cy - tgt.cy) < 40) {
                     try {
                         it.remove();
                         removed++;
@@ -672,7 +677,7 @@ $.global.FormaEngine = (function () {
                 if (it.typename === "GroupItem") {
                     if (checkAndRemove(it)) continue;
                     scanItems(it);
-                } else if (it.typename === "PathItem" || it.typename === "CompoundPathItem") {
+                } else if (it.typename === "CompoundPathItem" || it.typename === "PathItem") {
                     checkAndRemove(it);
                 }
             }
