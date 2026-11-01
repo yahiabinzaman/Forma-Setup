@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="bn">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ColorLab Forma Setup Pro</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="app-header">
+    <div class="brand-wrapper">
+      <img src="icons/icon-48.png" alt="Logo" class="brand-icon">
+      <div class="brand-title">
+        <span>Forma Setup Pro</span>
+        <span class="version-badge">v1.2</span>
+      </div>
+    </div>
+    <div class="header-actions">
+      <button id="btnRefreshDocs" class="icon-btn" title="Refresh">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <polyline points="23 4 23 10 17 10"></polyline>
+          <polyline points="1 20 1 14 7 14"></polyline>
+          <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+        </svg>
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Content (Single Clean View) -->
+  <main class="tab-content">
+
+    <!-- Status Banner -->
+    <div id="statusBanner" class="status-banner">
+      <span id="statusIcon" class="status-dot"></span>
+      <span id="statusText">Ready</span>
+    </div>
+
+    <!-- 1. Diary Size Selection (3 Presets) -->
+    <div class="card">
+      <div class="card-title">
+        <span>১. ডায়েরি সাইজ (Diary Size)</span>
+        <span class="badge" id="badgeDiarySize">2 No. Size</span>
+      </div>
+      <div class="size-btn-group">
+        <button type="button" class="btn-size-preset" data-size="size1">
+          <span class="size-title">1 No. Size</span>
+          <span class="size-desc">কম ব্যবহার</span>
+        </button>
+        <button type="button" class="btn-size-preset active" data-size="size2">
+          <span class="size-title">2 No. Size</span>
+          <span class="size-desc">ডিফল্ট</span>
+        </button>
+        <button type="button" class="btn-size-preset" data-size="size3">
+          <span class="size-title">3 No. Size</span>
+          <span class="size-desc">সাইজ ৩</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 2. Section Type -->
+    <div class="card">
+      <div class="card-title">
+        <span>২. সেকশন (Section Type)</span>
+      </div>
+      <div class="form-row">
+        <div class="form-group" style="flex: 1;">
+          <label for="selSectionType">ধরন:</label>
+          <select id="selSectionType">
+            <option value="inner_16">Inner (16 Page)</option>
+            <option value="note_16">Note (16 Page)</option>
+            <option value="album_16" selected>Album (16 Page - ঝুড়ি / Front & Back)</option>
+            <option value="inner_32">Inner (32 Page - 2 Formas)</option>
+            <option value="inner_48">Inner (48 Page - 3 Formas)</option>
+            <option value="album_8">Album (8 Page)</option>
+          </select>
+        </div>
+        <div id="batchGroup" class="form-group" style="flex: 1; display: none;">
+          <label for="selFormaBatch">ব্যাচ (Forma Batch):</label>
+          <select id="selFormaBatch">
+            <option value="1" selected>Forma 1 (Pages 1 - 16)</option>
+            <option value="2">Forma 2 (Pages 17 - 32)</option>
+            <option value="3">Forma 3 (Pages 33 - 48)</option>
+          </select>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Interactive Diagram Preview -->
+    <div class="diagram-container">
+      <div class="diagram-header">
+        <span id="diagramTitle" class="diagram-title">আর্টবোর্ড লেআউট প্রিভিউ</span>
+        <span id="diagramInfo" class="diagram-info">16 Artboards</span>
+      </div>
+      <div id="impositionGridPreview" class="imposition-grid-preview" style="grid-template-columns: repeat(4, 1fr);">
+        <!-- Populated by JS -->
+      </div>
+    </div>
+
+    <!-- Setup Forma Button -->
+    <button id="btnRunImposition" class="btn-primary" style="margin-top: 4px;">
+      <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+        <line x1="9" y1="3" x2="9" y2="21"></line>
+        <line x1="15" y1="3" x2="15" y2="21"></line>
+        <line x1="3" y1="9" x2="21" y2="9"></line>
+        <line x1="3" y1="15" x2="21" y2="15"></line>
+      </svg>
+      <span>এক ক্লিকে ফর্মা সেটআপ করুন (Setup Forma)</span>
+    </button>
+
+    <div class="hint-text">
+      পেজ ১-১৬ সিলেক্ট করে বাটনে ক্লিক করুন। স্বয়ংক্রিয়ভাবে আর্টবোর্ডে সাজানো হবে।
+    </div>
+
+    <!-- Print Demo (Back-to-Back Split & Print) -->
+    <div class="card" style="margin-top: 8px;">
+      <div class="card-title">
+        <span>ডেমো প্রিন্ট (Print Demo)</span>
+        <span class="badge badge-green">ব্যাক-টু-ব্যাক</span>
+      </div>
+      <div class="card-desc">
+        সবকিছু গ্রুপ করে আর্টবোর্ডকে দুই ভাগে (বাম ও ডান) বিভক্ত করে প্রিন্ট ডায়ালগ চালু করবে। প্রিন্ট শেষে স্বয়ংক্রিয়ভাবে মূল শিট আর্টবোর্ডে রিস্টোর হবে।
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button id="btnPrintDemo" class="btn-success" style="flex: 2;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <polyline points="6 9 6 2 18 2 18 9"></polyline>
+            <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"></path>
+            <rect x="6" y="14" width="12" height="8"></rect>
+          </svg>
+          <span>ডেমো প্রিন্ট (Print Demo)</span>
+        </button>
+        <button id="btnRestoreSheet" class="btn-secondary" style="flex: 1;" title="আর্টবোর্ড ১ রেখে বাকিগুলো ডিলিট করে পুরো শিটে ফিট করবে">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+            <path d="M3 3v5h5"></path>
+          </svg>
+          <span>শিট ফিট</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- 4. CTP Output Prep Section -->
+    <div class="card" style="margin-top: 8px;">
+      <div class="card-title">
+        <span>৩. সিটিপি প্রিপারেশন (CTP Prep)</span>
+        <span class="badge" id="badgeCtpColorMode" style="background: rgba(52, 199, 89, 0.15); color: #34c759;">৪-কালার সিএমওয়াইকে</span>
+      </div>
+      
+      <div class="form-group">
+        <label for="txtCtpJobName">কাজের নাম / প্লেট টেক্সট (বাংলা):</label>
+        <div style="display: flex; gap: 6px;">
+          <input type="text" id="txtCtpJobName" placeholder="যেমন: ইসলামপুর মাদ্রাসা" style="flex: 1;" />
+          <button type="button" id="btnAutoJobName" class="btn-secondary" title="ডকুমেন্টের নাম (@...) থেকে বাংলা নাম স্বয়ংক্রিয়ভাবে নিন" style="padding: 6px 10px; font-size: 10px;">
+            <span>অটো</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="form-group" style="margin-top: 6px;">
+        <label for="selCtpColorMode">প্লেট কালার মোড:</label>
+        <select id="selCtpColorMode">
+          <option value="auto" selected>স্বয়ংক্রিয় (Auto Detect)</option>
+          <option value="4color">৪-কালার সিএমওয়াইকে (Full CMYK)</option>
+          <option value="2color">২-কালার প্লেট (Cyan &amp; Black Only)</option>
+        </select>
+      </div>
+
+      <div class="card-desc" style="font-size: 9.5px; line-height: 1.5; color: #8e8e93;">
+        <div>• প্লেট টেক্সটে নাম আপডেট (নিচে 'ছাপা' লেখা থাকলে)</div>
+        <div id="ctpColorDescLine">• ৪-কালার ফুল কালার (CMYK কালার অপরিবর্তিত)</div>
+        <div>• টেমপ্লেট গ্রিড নম্বর অপসারিত ও ক্লিন</div>
+        <div>• সমস্ত লিংকড ছবি এম্বেড ও ফন্ট আউটলাইন</div>
+        <div>• সম্পূর্ণ ডকুমেন্টের অ্যাপিয়ারেন্স এক্সপ্যান্ড</div>
+      </div>
+
+      <button id="btnRunCtp" class="btn-primary" style="background: #5856d6; border-color: #4845b4; margin-top: 2px;">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"></circle>
+          <polyline points="12 6 12 12 16 14"></polyline>
+        </svg>
+        <span>সিটিপি রেডি করুন (Prepare for CTP)</span>
+      </button>
+    </div>
+
+  </main>
+
+  <!-- Footer -->
+  <footer class="app-footer">
+    <span>ColorLab Digital & Offset Press</span>
+    <button type="button" id="authorGithubLink" data-url="https://github.com/yahiabinzaman" class="author-link" title="Open GitHub Profile">
+      <svg class="github-icon" width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0024 12c0-6.63-5.37-12-12-12z"/>
+      </svg>
+      <span>Developed by <b>Yahia Bin Zaman</b></span>
+    </button>
+  </footer>
+
+  <script src="js/CSInterface.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>
