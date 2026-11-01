@@ -72,3 +72,4 @@ echo ""
 
 # Native macOS notification
 osascript -e 'display notification "Forma Setup Pro extension installed! Restart Illustrator to use." with title "ColorLab Forma Setup Pro"' 2>/dev/null || true
+

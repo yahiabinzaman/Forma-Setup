@@ -298,16 +298,57 @@ $.global.FormaEngine = (function () {
         return (minDist < 300) ? bestAb : null;
     }
 
+    function getAlbum16ArtboardGrid(doc) {
+        var abs = [];
+        for (var a = 0; a < doc.artboards.length; a++) {
+            var ab = doc.artboards[a];
+            var r = ab.artboardRect;
+            var cx = (r[0] + r[2]) / 2;
+            var cy = (r[1] + r[3]) / 2;
+            abs.push({ ab: ab, cx: cx, cy: cy });
+        }
+
+        if (abs.length < 16) return null;
+
+        // 1. Sort by CX to separate Left 8 (Front Sheet) and Right 8 (Back Sheet)
+        abs.sort(function (a, b) { return a.cx - b.cx; });
+        var left8 = abs.slice(0, 8);
+        var right8 = abs.slice(8, 16);
+
+        // 2. Left Sheet: Sort by CY (top 4 vs bot 4)
+        left8.sort(function (a, b) { return b.cy - a.cy; });
+        var leftTop = left8.slice(0, 4);
+        var leftBot = left8.slice(4, 8);
+        // Sort each row from left to right (by CX)
+        leftTop.sort(function (a, b) { return a.cx - b.cx; });
+        leftBot.sort(function (a, b) { return a.cx - b.cx; });
+
+        // 3. Right Sheet: Sort by CY (top 4 vs bot 4)
+        right8.sort(function (a, b) { return b.cy - a.cy; });
+        var rightTop = right8.slice(0, 4);
+        var rightBot = right8.slice(4, 8);
+        // Sort each row from left to right (by CX)
+        rightTop.sort(function (a, b) { return a.cx - b.cx; });
+        rightBot.sort(function (a, b) { return a.cx - b.cx; });
+
+        return {
+            leftTop: [leftTop[0].ab, leftTop[1].ab, leftTop[2].ab, leftTop[3].ab],
+            leftBot: [leftBot[0].ab, leftBot[1].ab, leftBot[2].ab, leftBot[3].ab],
+            rightTop: [rightTop[0].ab, rightTop[1].ab, rightTop[2].ab, rightTop[3].ab],
+            rightBot: [rightBot[0].ab, rightBot[1].ab, rightBot[2].ab, rightBot[3].ab]
+        };
+    }
+
     function ensureAlbum16Artboards(doc) {
         while (doc.artboards.length > 1) {
             doc.artboards[doc.artboards.length - 1].remove();
         }
         doc.artboards[0].artboardRect = ALBUM_16_ARTBOARD_RECTS[1];
-        doc.artboards[0].name = "Artboard 1";
+        doc.artboards[0].name = "01 - Artboard 1";
 
         for (var p = 2; p <= 16; p++) {
             var newAb = doc.artboards.add(ALBUM_16_ARTBOARD_RECTS[p]);
-            newAb.name = "Artboard " + p;
+            newAb.name = (p < 10 ? "0" + p : p) + " - Artboard " + p;
         }
         doc.artboards.setActiveArtboardIndex(0);
     }
@@ -691,13 +732,55 @@ $.global.FormaEngine = (function () {
                 // Sort selected pages in 1 to 16 sequence (Row 1: 1..8, Row 2: 9..16)
                 var sortedPages = sortSelected16Pages(sel);
 
-                // Map Page N -> Artboard N with Exact User Rotation
-                for (var p = 1; p <= requiredPages; p++) {
-                    var pageItem = sortedPages[p - 1];
-                    var destAB = getArtboardForPage(doc, p, params.sectionType, requiredPages);
-                    if (destAB) {
-                        var rot = getPageRotation(p, params.sectionType, requiredPages);
-                        placeOnArtboard(pageItem, destAB, rot);
+                if (params.sectionType === "album_16") {
+                    var grid = getAlbum16ArtboardGrid(doc);
+                    if (!grid) {
+                        throw new Error("ডকুমেন্টে কমপক্ষে ১৬টি আর্টবোর্ড থাকতে হবে!");
+                    }
+
+                    // Precise physical slot mapping matching Image 3 & UI Preview:
+                    var albumMappings = [
+                        // Left Sheet (Front Sheet)
+                        // Top Row (180°): Col 0 -> Page 5, Col 1 -> Page 12, Col 2 -> Page 9, Col 3 -> Page 8
+                        { ab: grid.leftTop[0], pageNum: 5,  rot: 180, name: "05 - Artboard 5" },
+                        { ab: grid.leftTop[1], pageNum: 12, rot: 180, name: "12 - Artboard 12" },
+                        { ab: grid.leftTop[2], pageNum: 9,  rot: 180, name: "09 - Artboard 9" },
+                        { ab: grid.leftTop[3], pageNum: 8,  rot: 180, name: "08 - Artboard 8" },
+                        // Bot Row (0°):   Col 0 -> Page 4, Col 1 -> Page 13, Col 2 -> Page 16, Col 3 -> Page 1
+                        { ab: grid.leftBot[0], pageNum: 4,  rot: 0,   name: "04 - Artboard 4" },
+                        { ab: grid.leftBot[1], pageNum: 13, rot: 0,   name: "13 - Artboard 13" },
+                        { ab: grid.leftBot[2], pageNum: 16, rot: 0,   name: "16 - Artboard 16" },
+                        { ab: grid.leftBot[3], pageNum: 1,  rot: 0,   name: "01 - Artboard 1" },
+
+                        // Right Sheet (Back Sheet)
+                        // Top Row (180°): Col 0 -> Page 7, Col 1 -> Page 10, Col 2 -> Page 11, Col 3 -> Page 6
+                        { ab: grid.rightTop[0], pageNum: 7,  rot: 180, name: "07 - Artboard 7" },
+                        { ab: grid.rightTop[1], pageNum: 10, rot: 180, name: "10 - Artboard 10" },
+                        { ab: grid.rightTop[2], pageNum: 11, rot: 180, name: "11 - Artboard 11" },
+                        { ab: grid.rightTop[3], pageNum: 6,  rot: 180, name: "06 - Artboard 6" },
+                        // Bot Row (0°):   Col 0 -> Page 2, Col 1 -> Page 15, Col 2 -> Page 14, Col 3 -> Page 3
+                        { ab: grid.rightBot[0], pageNum: 2,  rot: 0,   name: "02 - Artboard 2" },
+                        { ab: grid.rightBot[1], pageNum: 15, rot: 0,   name: "15 - Artboard 15" },
+                        { ab: grid.rightBot[2], pageNum: 14, rot: 0,   name: "14 - Artboard 14" },
+                        { ab: grid.rightBot[3], pageNum: 3,  rot: 0,   name: "03 - Artboard 3" }
+                    ];
+
+                    for (var m = 0; m < albumMappings.length; m++) {
+                        var map = albumMappings[m];
+                        var pageItem = sortedPages[map.pageNum - 1];
+                        placeOnArtboard(pageItem, map.ab, map.rot);
+                        map.ab.name = map.name;
+                    }
+
+                } else {
+                    // Standard Inner / Note Imposition Mapping
+                    for (var p = 1; p <= requiredPages; p++) {
+                        var pageItem = sortedPages[p - 1];
+                        var destAB = getArtboardForPage(doc, p, params.sectionType, requiredPages);
+                        if (destAB) {
+                            var rot = getPageRotation(p, params.sectionType, requiredPages);
+                            placeOnArtboard(pageItem, destAB, rot);
+                        }
                     }
                 }
 

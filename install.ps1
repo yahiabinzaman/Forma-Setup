@@ -81,3 +81,4 @@ Write-Host " Window > Extensions > ColorLab Forma Setup Pro" -ForegroundColor Wh
 Write-Host " (Or File > Scripts > Forma_Setup_Pro_QuickRun)" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host ""
+
