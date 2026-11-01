@@ -5,9 +5,38 @@
 [![Platform](https://img.shields.io/badge/Platform-macOS%20%7C%20Windows-blue.svg)](https://github.com/yahiabinzaman/Forma-Setup)
 [![Author](https://img.shields.io/badge/Developed%20by-Yahia%20Bin%20Zaman-007acc.svg)](https://github.com/yahiabinzaman)
 
-**ColorLab Forma Setup Pro** হলো Adobe Illustrator-এর জন্য একটি উচ্চ ক্ষমতাসম্পন্ন, আধুনিক এবং সম্পূর্ণ স্বয়ংক্রিয় অফসেট প্রিন্টিং ও প্রেসিং ফর্মা সেটআপ এক্সটেনশন (CEP Panel & ExtendScript Engine)। এটি বই, ডায়েরি, নোটবুক এবং অ্যালবাম প্রকাশের জটিল পেজ ইম্পজিশন (Imposition), প্রিন্ট ডেমো স্প্লিট এবং সিটিপি প্লেট প্রিপারেশনকে কয়েক সেকেন্ডের মধ্যে নিখুঁতভাবে সম্পন্ন করে।
+**ColorLab Forma Setup Pro** হলো Adobe Illustrator-এর জন্য একটি আধুনিক, দ্রুত এবং সম্পূর্ণ স্বয়ংক্রিয় অফসেট প্রিন্টিং ও প্রেসিং ফর্মা সেটআপ এক্সটেনশন (CEP Panel & ExtendScript Engine)। এটি বই, ডায়েরি, নোটবুক এবং অ্যালবাম প্রকাশের জটিল পেজ ইম্পজিশন (Imposition), প্রিন্ট ডেমো স্প্লিট এবং সিটিপি প্লেট প্রিপারেশনকে কয়েক সেকেন্ডের মধ্যে সম্পন্ন করে।
 
 Developed with ❤️ by **[Yahia Bin Zaman](https://github.com/yahiabinzaman)** / **ColorLab**
+
+---
+
+## ⚡ ১-ক্লিকে ইনস্টলেশন (1-Line Quick Install)
+
+কোনো ফাইল ম্যানুয়ালি খোঁজা বা এক্সট্র্যাক্ট করার ঝামেলা ছাড়াই টার্মিনাল বা পাওয়ারশেলে নিচের কোডটি পেস্ট করলেই অটোমেটিক এক্সটেনশন ইনস্টল হয়ে যাবে:
+
+### 🪟 উইন্ডোজ (Windows PowerShell):
+Windows-এ **PowerShell** ওপেন করে নিচের লাইনটি পেস্ট করে **Enter** চাপুন:
+```powershell
+irm https://raw.githubusercontent.com/yahiabinzaman/Forma-Setup/main/install.ps1 | iex
+```
+
+### 🍎 ম্যাক ওএস (macOS Terminal):
+Mac-এ **Terminal** ওপেন করে নিচের লাইনটি পেস্ট করে **Enter** চাপুন:
+```bash
+curl -fsSL https://raw.githubusercontent.com/yahiabinzaman/Forma-Setup/main/install.sh | bash
+```
+
+> **ইনস্টলেশন সফল হওয়ার পর:** Adobe Illustrator রিস্টার্ট করে মেনুবার থেকে যান:  
+> **Window > Extensions > ColorLab Forma Setup Pro**  
+> *(অথবা File > Scripts > Forma_Setup_Pro_QuickRun)*
+
+---
+
+### 🖱️ ডাবল-ক্লিক অফলাইন ইনস্টলার (Offline / Without Terminal):
+ইন্টারনেট বা কমান্ড লাইন ছাড়া ইনস্টল করতে চাইলে এই রিপোজিটরিটি [ZIP ডাউনলোড](https://github.com/yahiabinzaman/Forma-Setup/archive/refs/heads/main.zip) করে আনজিপ করুন:
+- **Windows ব্যবহারকারী:** `Install_Windows.bat` ফাইলে রাইট-ক্লিক করে **Run as Administrator** বা ডাবল-ক্লিক করুন।
+- **macOS ব্যবহারকারী:** `Install_Mac.command` ফাইলে ডাবল-ক্লিক করুন।
 
 ---
 
@@ -17,8 +46,12 @@ Developed with ❤️ by **[Yahia Bin Zaman](https://github.com/yahiabinzaman)**
 - **Inner (16 Page):** ১৬ পেজ ডায়েরি ও বইয়ের ভেতরের ফর্মা সেটআপ। হেড-টু-হেড কলাম রোটেশন (ডানে ২৭০° ও বামে ৯০°)।
 - **Note (16 Page):** নোটবুকের ১৬ পেজ ফর্মা সেটআপ।
 - **Album (16 Page - ঝুড়ি / Front & Back):** ১৬ পেজ অ্যালবাম ঝুড়ি ফর্মা। 
-  - **Front Sheet:** উপরের সারি (৯, ১২, ৫, ৮ - ১৮০° উল্টা) এবং নিচের সারি (৪, ১৩, ১৬, ১ - ০° সোজা)।
-  - **Back Sheet:** উপরের সারি (৭, ১০, ১১, ৬ - ১৮০° উল্টা) এবং নিচের সারি (২, ১৫, ১৪, ৩ - ০° সোজা)।
+  - **Front Sheet (বাম শিট):** 
+    - উপরের সারি: পেজ **৫ — ১২ — ৯ — ৮** (১৮০° উল্টা)
+    - নিচের সারি: পেজ **৪ — ১৩ — ১৬ — ১** (০° সোজা)
+  - **Back Sheet (ডান শিট):** 
+    - উপরের সারি: পেজ **৭ — ১০ — ১১ — ৬** (১৮০° উল্টা)
+    - নিচের সারি: পেজ **২ — ১৫ — ১৪ — ৩** (০° সোজা)
 - **Inner 32 & 48 Page Multi-Forma:** ৩২ পেজ (Forma 1 & 2) এবং ৪৮ পেজ (Forma 1, 2 & 3) ব্যাচ ইম্পজিশন সাপোর্ট।
 - **Album (8 Page):** ৮ পেজ অ্যালবাম ফর্মা বুকলেট সেটআপ।
 - **রুট-সিলেকশন নরম্যালাইজার:** আর্টওয়ার্ক গ্রুপের ভেতরে সাব-অবজেক্ট সিলেক্ট থাকলেও স্ক্রিপ্ট স্বয়ংক্রিয়ভাবে মূল ১৬টি পেজ গ্রুপ ফিল্টার করে নেয়।
@@ -68,36 +101,15 @@ Forma Setup/
 ├── jsx/
 │   └── hostscript.jsx           # মূল ইলাস্ট্রেটর এক্সটেন্ডস্ক্রিপ্ট ইঞ্জিন (ইম্পজিশন, গ্রিড ক্লিন, সিটিপি)
 ├── .debug                       # CEP রিমোট ডিবাগিং পোর্ট কনফিগারেশন (8096)
+├── install.ps1                  # উইন্ডোজ ১-লাইন পাওয়ারশেল অটো ইনস্টলার
+├── install.sh                   # ম্যাক ওএস ১-লাইন টার্মিনাল অটো ইনস্টলার
+├── Install_Mac.command          # ম্যাক ১-ক্লিক ডাবল-ক্লিক ইনস্টলার
+├── Install_Windows.bat          # উইন্ডোজ ১-ক্লিক ডাবল-ক্লিক ইনস্টলার
 ├── Forma_Setup_Pro_QuickRun.jsx # ডিরেক্ট স্ক্রিপ্ট রানার (মেনুবার থেকে রান করার জন্য)
 ├── Print_Demo_BackToBack.jsx    # স্ট্যান্ডঅ্যালোন ডেমো প্রিন্ট স্ক্রিপ্ট
-├── Install_Mac.command          # ম্যাক ১-ক্লিক অটো ইনস্টলার
-├── Install_Windows.bat          # উইন্ডোজ ১-ক্লিক অটো ইনস্টলার
 ├── index.html                   # প্যানেল মেইন মার্কআপ
 └── README.md                    # বিস্তারিত ডকুমেন্টেশন
 ```
-
----
-
-## 🚀 ইনস্টলেশন নির্দেশিকা (Installation Guide)
-
-### ম্যাক ওএস (macOS):
-1. রিপোজিটরিটি ডাউনলোড বা ক্লোন করুন।
-2. `Install_Mac.command` ফাইলে ডাবল ক্লিক করুন।
-3. টার্মিনালে ইনস্টলেশন সম্পন্ন হওয়ার পর Adobe Illustrator রিস্টার্ট করুন।
-
-*ম্যানুয়াল পাথ:*
-`~/Library/Application Support/Adobe/CEP/extensions/com.colorlab.formasetup`
-
----
-
-### উইন্ডোজ (Windows):
-1. `Install_Windows.bat` ফাইলে রাইট-ক্লিক করে **Run as Administrator** নির্বাচন করুন।
-2. ইনস্টলেশন শেষে Adobe Illustrator রিস্টার্ট করুন।
-
-*ম্যানুয়াল পাথ:*
-`C:\Program Files (x86)\Common Files\Adobe\CEP\extensions\com.colorlab.formasetup`
-অথবা
-`%APPDATA%\Adobe\CEP\extensions\com.colorlab.formasetup`
 
 ---
 

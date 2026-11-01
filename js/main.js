@@ -574,6 +574,7 @@
               if (txtCtp) txtCtp.value = toBengaliWords(info.jobName);
             }
             renderPreview();
+            updateCtpUI();
             if (!quiet) {
               var typeLabel = (state.sectionType === "album_16") ? "অ্যালবাম (Album 16)" : "ইনার/নোট (Inner 16)";
               showStatus("ডকুমেন্ট ডিটেক্টেড: " + info.name + " [" + typeLabel + "]", "info", 3000);
@@ -632,6 +633,7 @@
     }
 
     autoDetectDoc(true);
+    updateCtpUI();
   }
 
   if (document.readyState === "loading") {

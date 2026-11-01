@@ -403,19 +403,49 @@ $.global.FormaEngine = (function () {
     }
 
     function isAlbumDoc(doc, sectionType) {
+        if (!doc) return false;
         if (sectionType === "album_16" || sectionType === "album_8") return true;
-        if (sectionType === "inner_16" || sectionType === "note_16" || sectionType === "inner_32" || sectionType === "inner_48") return false;
+
+        // 1. Check document name
         var lower = doc.name.toLowerCase();
-        if (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 || lower.indexOf("front & back") !== -1) {
+        if (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 ||
+            lower.indexOf("front & back") !== -1 || lower.indexOf("back to back") !== -1 ||
+            doc.name.indexOf("\u0986\u09B2") !== -1 || // আল
+            doc.name.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // ব্যাক
+            doc.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // জুড়ি
+            doc.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) { // ঝুড়ি
             return true;
         }
-        // Check if doc has 16 portrait artboards
+
+        // 2. Check artboard names (e.g. "Front Sheet", "Back Sheet", or "05 - Artboard 5" at top-left)
+        for (var a = 0; a < doc.artboards.length; a++) {
+            var abName = doc.artboards[a].name.toLowerCase();
+            if (abName.indexOf("front sheet") !== -1 || abName.indexOf("back sheet") !== -1) {
+                return true;
+            }
+        }
+
+        // 3. Check 16 artboards portrait orientation (Album pages are portrait, inner/note sheets are landscape)
         if (doc.artboards.length === 16) {
             var r = doc.artboards[0].artboardRect;
             var w = Math.abs(r[2] - r[0]);
             var h = Math.abs(r[1] - r[3]);
             if (h > w) return true;
         }
+
+        // 4. Check text frame contents (looking for "ব্যাক টু ব্যাক", "আল - ", or "জুড়ি")
+        try {
+            for (var t = 0; t < doc.textFrames.length; t++) {
+                var tc = doc.textFrames[t].contents;
+                if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // ব্যাক টু ব্যাক
+                    tc.indexOf("\u0986\u09B2 -") !== -1 || // আল -
+                    tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // জুড়ি
+                    tc.indexOf("Back to Back") !== -1) {
+                    return true;
+                }
+            }
+        } catch (e) {}
+
         return false;
     }
 
@@ -427,65 +457,77 @@ $.global.FormaEngine = (function () {
         try { app.executeMenuCommand("unlockAll"); } catch (e) {}
         try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-        var lay = doc.layers[0];
+        // Exact horizontal divider between Left (Front) and Right (Back) sheets
+        var DIVIDER_X = 854;
 
-        // 1. Calculate horizontal midpoint between Left and Right sheets
-        var minX = 999999, maxX = -999999;
-        for (var i = 0; i < lay.pageItems.length; i++) {
-            var gb = lay.pageItems[i].geometricBounds;
-            if (gb[0] < minX) minX = gb[0];
-            if (gb[2] > maxX) maxX = gb[2];
-        }
-        var midX = (minX + maxX) / 2;
-
-        // 2. Partition top-level items on layer 0 into Left (Front) and Right (Back)
         var leftItems = [];
         var rightItems = [];
-        for (var j = 0; j < lay.pageItems.length; j++) {
-            var it = lay.pageItems[j];
-            var cx = (it.geometricBounds[0] + it.geometricBounds[2]) / 2;
-            if (cx < midX) {
-                leftItems.push(it);
-            } else {
-                rightItems.push(it);
+        var minX_L = 999999, maxX_L = -999999, minY_L = 999999, maxY_L = -999999;
+        var minX_R = 999999, maxX_R = -999999, minY_R = 999999, maxY_R = -999999;
+        var foundL = false, foundR = false;
+
+        for (var iLay = 0; iLay < doc.layers.length; iLay++) {
+            var lay = doc.layers[iLay];
+            for (var j = 0; j < lay.pageItems.length; j++) {
+                var it = lay.pageItems[j];
+                if (it.guides) continue; // skip ruler guides
+                var gb = it.geometricBounds;
+                var cx = (gb[0] + gb[2]) / 2;
+
+                if (cx < DIVIDER_X) {
+                    leftItems.push(it);
+                    if (gb[0] < minX_L) minX_L = gb[0];
+                    if (gb[1] > maxY_L) maxY_L = gb[1];
+                    if (gb[2] > maxX_L) maxX_L = gb[2];
+                    if (gb[3] < minY_L) minY_L = gb[3];
+                    foundL = true;
+                } else {
+                    rightItems.push(it);
+                    if (gb[0] < minX_R) minX_R = gb[0];
+                    if (gb[1] > maxY_R) maxY_R = gb[1];
+                    if (gb[2] > maxX_R) maxX_R = gb[2];
+                    if (gb[3] < minY_R) minY_R = gb[3];
+                    foundR = true;
+                }
             }
         }
 
-        // 3. Native DOM grouping (never throws "Can't make a group of objects that are within different groups")
+        // Safe DOM grouping (never throws "Can't make a group of objects that are within different groups")
+        var mainLay = doc.layers[0];
         var leftGroup = null;
-        if (leftItems.length > 1) {
-            leftGroup = lay.groupItems.add();
-            leftGroup.name = "Front Sheet (Sheet 1)";
-            for (var li = leftItems.length - 1; li >= 0; li--) {
-                try {
-                    leftItems[li].move(leftGroup, ElementPlacement.PLACEATBEGINNING);
-                } catch (e) {}
-            }
-        } else if (leftItems.length === 1) {
-            leftGroup = leftItems[0];
+        if (leftItems.length > 0) {
+            try {
+                leftGroup = mainLay.groupItems.add();
+                leftGroup.name = "Front Sheet (Sheet 1)";
+                for (var li = leftItems.length - 1; li >= 0; li--) {
+                    try {
+                        leftItems[li].move(leftGroup, ElementPlacement.PLACEATBEGINNING);
+                    } catch (e) {}
+                }
+            } catch (e) {}
         }
 
         var rightGroup = null;
-        if (rightItems.length > 1) {
-            rightGroup = lay.groupItems.add();
-            rightGroup.name = "Back Sheet (Sheet 2)";
-            for (var ri = rightItems.length - 1; ri >= 0; ri--) {
-                try {
-                    rightItems[ri].move(rightGroup, ElementPlacement.PLACEATBEGINNING);
-                } catch (e) {}
-            }
-        } else if (rightItems.length === 1) {
-            rightGroup = rightItems[0];
+        if (rightItems.length > 0) {
+            try {
+                rightGroup = mainLay.groupItems.add();
+                rightGroup.name = "Back Sheet (Sheet 2)";
+                for (var ri = rightItems.length - 1; ri >= 0; ri--) {
+                    try {
+                        rightItems[ri].move(rightGroup, ElementPlacement.PLACEATBEGINNING);
+                    } catch (e) {}
+                }
+            } catch (e) {}
         }
 
-        if (!leftGroup || !rightGroup) {
+        var bLeft = foundL ? [minX_L, maxY_L, maxX_L, minY_L] : (leftGroup ? leftGroup.geometricBounds : null);
+        var bRight = foundR ? [minX_R, maxY_R, maxX_R, minY_R] : (rightGroup ? rightGroup.geometricBounds : null);
+
+        if (!bLeft || !bRight) {
             throw new Error("অ্যালবাম শিটের গ্রুপ তৈরি করা যায়নি!");
         }
 
-        var bLeft = leftGroup.geometricBounds;
-        var bRight = rightGroup.geometricBounds;
-
-        // 4. Remove extra artboards and set clean English names (avoids Mojibake and double numbering)
+        // 4. Remove extra artboards and set exactly 2 fitted artboards
         while (doc.artboards.length > 1) {
             doc.artboards[doc.artboards.length - 1].remove();
         }
@@ -508,49 +550,59 @@ $.global.FormaEngine = (function () {
 
     function cleanGridNumbers(doc) {
         var removed = 0;
-        for (var l = 0; l < doc.layers.length; l++) {
-            var lay = doc.layers[l];
-            for (var i = lay.pageItems.length - 1; i >= 0; i--) {
-                var it = lay.pageItems[i];
-                var gb = it.geometricBounds;
-                var w = Math.abs(gb[2] - gb[0]);
-                var h = Math.abs(gb[1] - gb[3]);
 
-                // Case 1: Template sheet group (contains sub-items where w < 350, h < 350)
-                if (it.typename === "GroupItem" && w > 1400 && h > 900) {
-                    var subToRemove = [];
-                    for (var s = 0; s < it.pageItems.length; s++) {
-                        var sub = it.pageItems[s];
-                        var sgb = sub.geometricBounds;
-                        var sw = Math.abs(sgb[2] - sgb[0]);
-                        var sh = Math.abs(sgb[1] - sgb[3]);
-                        if (sw > 30 && sw < 350 && sh > 30 && sh < 350) {
-                            subToRemove.push(sub);
+        function checkAndRemove(it) {
+            if (!it) return false;
+            if (it.guides) return false;
+            var gb;
+            try { gb = it.geometricBounds; } catch (e) { return false; }
+            if (!gb) return false;
+            var w = Math.abs(gb[2] - gb[0]);
+            var h = Math.abs(gb[1] - gb[3]);
+            if (w < 15 || h < 15 || w > 350 || h > 350) return false;
+
+            var cx = (gb[0] + gb[2]) / 2;
+            var cy = (gb[1] + gb[3]) / 2;
+
+            for (var p = 1; p <= 16; p++) {
+                var tgt = ALBUM_TARGETS[p];
+                if (Math.abs(cx - tgt.cx) < 120 && Math.abs(cy - tgt.cy) < 120) {
+                    var isCyan = false;
+                    try {
+                        var col = it.stroked ? it.strokeColor : (it.filled ? it.fillColor : null);
+                        if (col && col.typename === "CMYKColor") {
+                            if (col.cyan > 40 && col.magenta < 30 && col.yellow < 30) isCyan = true;
                         }
-                    }
-                    for (var r = 0; r < subToRemove.length; r++) {
+                    } catch (eCol) {}
+
+                    if (isCyan || (Math.abs(cx - tgt.cx) < 60 && Math.abs(cy - tgt.cy) < 60)) {
                         try {
-                            subToRemove[r].remove();
+                            it.remove();
                             removed++;
-                        } catch (e) {}
-                    }
-                }
-                // Case 2: Stray guide number directly on layer matching target slots
-                else if (it.typename === "GroupItem" && w > 30 && w < 350 && h > 30 && h < 350) {
-                    var cx = (gb[0] + gb[2]) / 2;
-                    var cy = (gb[1] + gb[3]) / 2;
-                    for (var p = 1; p <= 16; p++) {
-                        var tgt = ALBUM_TARGETS[p];
-                        if (Math.abs(cx - tgt.cx) < 60 && Math.abs(cy - tgt.cy) < 60) {
-                            try {
-                                it.remove();
-                                removed++;
-                            } catch (e) {}
-                            break;
-                        }
+                            return true;
+                        } catch (eRem) {}
                     }
                 }
             }
+            return false;
+        }
+
+        function scanItems(parent) {
+            if (!parent || !parent.pageItems) return;
+            for (var i = parent.pageItems.length - 1; i >= 0; i--) {
+                var it = parent.pageItems[i];
+                if (it.typename === "GroupItem") {
+                    if (checkAndRemove(it)) continue;
+                    scanItems(it);
+                } else if (it.typename === "PathItem" || it.typename === "CompoundPathItem") {
+                    checkAndRemove(it);
+                }
+            }
+        }
+
+        for (var l = 0; l < doc.layers.length; l++) {
+            var lay = doc.layers[l];
+            scanItems(lay);
         }
         return removed;
     }
@@ -693,18 +745,13 @@ $.global.FormaEngine = (function () {
                 try { app.executeMenuCommand("unlockAll"); } catch (e) {}
                 try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-                // 2. Select all and group
-                doc.selection = null;
-                app.executeMenuCommand("selectall");
-                app.executeMenuCommand("group");
-
-                // 3. Keep only 1 artboard, remove the rest
+                // 2. Keep only 1 artboard, remove the rest
                 while (doc.artboards.length > 1) {
                     doc.artboards[doc.artboards.length - 1].remove();
                 }
                 doc.artboards.setActiveArtboardIndex(0);
 
-                // 4. Fit remaining artboard to artwork bounds
+                // 3. Fit remaining artboard to artwork bounds
                 app.executeMenuCommand("Fit Artboard to artwork bounds");
 
                 var rect = doc.artboards[0].artboardRect;
@@ -717,21 +764,21 @@ $.global.FormaEngine = (function () {
                 var totalH = top - bottom;
                 var halfW = totalW / 2;
 
-                // 5. Left half artboard (reference point left)
+                // 4. Left half artboard (reference point left)
                 doc.artboards[0].artboardRect = [left, top, left + halfW, bottom];
                 doc.artboards[0].name = "01 - Left (Half)";
 
-                // 6. Right half artboard
+                // 5. Right half artboard
                 var ab2 = doc.artboards.add([left + halfW, top, right, bottom]);
                 ab2.name = "02 - Right (Half)";
 
                 doc.artboards.setActiveArtboardIndex(0);
                 app.redraw();
 
-                // 7. Open Print Dialog (modal)
+                // 6. Open Print Dialog (modal)
                 app.executeMenuCommand("Print");
 
-                // 8. After Print Dialog is closed: restore to single full sheet artboard
+                // 7. After Print Dialog is closed: restore to single full sheet artboard
                 while (doc.artboards.length > 1) {
                     doc.artboards[doc.artboards.length - 1].remove();
                 }
@@ -846,17 +893,36 @@ $.global.FormaEngine = (function () {
 
                 var detectedType = "inner_16";
                 var lower = name.toLowerCase();
-                if (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 || lower.indexOf("front & back") !== -1) {
+                if (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 ||
+                    lower.indexOf("front & back") !== -1 || lower.indexOf("back to back") !== -1 ||
+                    name.indexOf("\u0986\u09B2") !== -1 || name.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995") !== -1 ||
+                    name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) {
                     detectedType = "album_16";
-                } else if (lower.indexOf("note") !== -1) {
+                } else if (lower.indexOf("note") !== -1 || name.indexOf("\u09A8\u09CB\u099F") !== -1) {
                     detectedType = "note_16";
-                } else if (lower.indexOf("inner") !== -1) {
+                } else if (lower.indexOf("inner") !== -1 || name.indexOf("\u0987\u09A8\u09BE\u09B0") !== -1) {
                     detectedType = "inner_16";
                 } else if (doc.artboards.length === 16) {
                     var r0 = doc.artboards[0].artboardRect;
                     var w0 = Math.abs(r0[2] - r0[0]);
                     var h0 = Math.abs(r0[1] - r0[3]);
                     if (h0 > w0) detectedType = "album_16";
+                }
+
+                // Also check text frame contents if still inner_16
+                if (detectedType === "inner_16") {
+                    try {
+                        for (var tScan = 0; tScan < doc.textFrames.length; tScan++) {
+                            var tcScan = doc.textFrames[tScan].contents;
+                            if (tcScan.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || 
+                                tcScan.indexOf("\u0986\u09B2 -") !== -1 || 
+                                tcScan.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
+                                tcScan.indexOf("Back to Back") !== -1) {
+                                detectedType = "album_16";
+                                break;
+                            }
+                        }
+                    } catch (eScan) {}
                 }
 
                 return toJson({
