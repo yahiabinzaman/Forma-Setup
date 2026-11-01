@@ -164,32 +164,32 @@
       els.impositionGridPreview.style.gap = "6px";
       els.impositionGridPreview.innerHTML = "";
 
-      // Part 1: Front (Sheet 1 - AB 01 to 08)
-      // Row 1 (Top): 9, 12, 5, 8 (Rot: 180° / উল্টা)
+      // Part 1: Left Sheet (Front / Sheet 1)
+      // Row 1 (Top): 5, 12, 9, 8 (Rot: 180° / উল্টা)
       // Row 2 (Bottom): 4, 13, 16, 1 (Rot: 0° / সোজা)
       var sheet1 = [
-        { ab: 1, page: 9, rot: 180 },
-        { ab: 2, page: 12, rot: 180 },
-        { ab: 3, page: 5, rot: 180 },
-        { ab: 4, page: 8, rot: 180 },
-        { ab: 5, page: 4, rot: 0 },
-        { ab: 6, page: 13, rot: 0 },
-        { ab: 7, page: 16, rot: 0 },
-        { ab: 8, page: 1, rot: 0 }
+        { ab: 5, page: 5, rot: 180 },
+        { ab: 12, page: 12, rot: 180 },
+        { ab: 9, page: 9, rot: 180 },
+        { ab: 8, page: 8, rot: 180 },
+        { ab: 4, page: 4, rot: 0 },
+        { ab: 13, page: 13, rot: 0 },
+        { ab: 16, page: 16, rot: 0 },
+        { ab: 1, page: 1, rot: 0 }
       ];
 
-      // Part 2: Back (Sheet 2 - AB 09 to 16)
+      // Part 2: Right Sheet (Back / Sheet 2)
       // Row 1 (Top): 7, 10, 11, 6 (Rot: 180° / উল্টা)
       // Row 2 (Bottom): 2, 15, 14, 3 (Rot: 0° / সোজা)
       var sheet2 = [
-        { ab: 9, page: 7, rot: 180 },
+        { ab: 7, page: 7, rot: 180 },
         { ab: 10, page: 10, rot: 180 },
         { ab: 11, page: 11, rot: 180 },
-        { ab: 12, page: 6, rot: 180 },
-        { ab: 13, page: 2, rot: 0 },
-        { ab: 14, page: 15, rot: 0 },
-        { ab: 15, page: 14, rot: 0 },
-        { ab: 16, page: 3, rot: 0 }
+        { ab: 6, page: 6, rot: 180 },
+        { ab: 2, page: 2, rot: 0 },
+        { ab: 15, page: 15, rot: 0 },
+        { ab: 14, page: 14, rot: 0 },
+        { ab: 3, page: 3, rot: 0 }
       ];
 
       function buildSheetGrid(items, title) {

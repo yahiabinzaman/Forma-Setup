@@ -236,49 +236,49 @@ $.global.FormaEngine = (function () {
 
     /**
      * Album 16-Page Front & Back (Jhuri) Imposition Mapping:
-     * Sheet 1 (Front - AB 1..8):
-     *   Row 1 (Top): AB 1 -> Page 9 (180°), AB 2 -> Page 12 (180°), AB 3 -> Page 5 (180°), AB 4 -> Page 8 (180°)
-     *   Row 2 (Bot): AB 5 -> Page 4 (0°),   AB 6 -> Page 13 (0°),   AB 7 -> Page 16 (0°),  AB 8 -> Page 1 (0°)
-     * Sheet 2 (Back - AB 9..16):
-     *   Row 1 (Top): AB 9 -> Page 7 (180°), AB 10 -> Page 10 (180°), AB 11 -> Page 11 (180°), AB 12 -> Page 6 (180°)
-     *   Row 2 (Bot): AB 13 -> Page 2 (0°),  AB 14 -> Page 15 (0°),   AB 15 -> Page 14 (0°),  AB 16 -> Page 3 (0°)
+     * Left Sheet (Front):
+     *   Row 1 (Top): Col 0: Page 5 (180°), Col 1: Page 12 (180°), Col 2: Page 9 (180°), Col 3: Page 8 (180°)
+     *   Row 2 (Bot): Col 0: Page 4 (0°),   Col 1: Page 13 (0°),   Col 2: Page 16 (0°),  Col 3: Page 1 (0°)
+     * Right Sheet (Back):
+     *   Row 1 (Top): Col 0: Page 7 (180°), Col 1: Page 10 (180°), Col 2: Page 11 (180°), Col 3: Page 6 (180°)
+     *   Row 2 (Bot): Col 0: Page 2 (0°),   Col 1: Page 15 (0°),   Col 2: Page 14 (0°),  Col 3: Page 3 (0°)
      */
     var ALBUM_TARGETS = {
-        1:  { cx: 600,  cy: -732, rot: 0   },
-        2:  { cx: 1108, cy: -732, rot: 0   },
-        3:  { cx: 2426, cy: -732, rot: 0   },
-        4:  { cx: -717, cy: -732, rot: 0   },
-        5:  { cx: 161,  cy: -96,  rot: 180 },
-        6:  { cx: 2426, cy: -96,  rot: 180 },
-        7:  { cx: 1108, cy: -96,  rot: 180 },
-        8:  { cx: 600,  cy: -96,  rot: 180 },
-        9:  { cx: -717, cy: -96,  rot: 180 },
-        10: { cx: 1548, cy: -96,  rot: 180 },
-        11: { cx: 1987, cy: -96,  rot: 180 },
-        12: { cx: -278, cy: -96,  rot: 180 },
-        13: { cx: -278, cy: -732, rot: 0   },
-        14: { cx: 1987, cy: -732, rot: 0   },
-        15: { cx: 1548, cy: -732, rot: 0   },
-        16: { cx: 161,  cy: -732, rot: 0   }
+        1:  { cx: 600,  cy: -732, rot: 0   }, // Left Sheet, Bot, Col 3
+        2:  { cx: 1108, cy: -732, rot: 0   }, // Right Sheet, Bot, Col 0
+        3:  { cx: 2426, cy: -732, rot: 0   }, // Right Sheet, Bot, Col 3
+        4:  { cx: -717, cy: -732, rot: 0   }, // Left Sheet, Bot, Col 0
+        5:  { cx: -717, cy: -96,  rot: 180 }, // Left Sheet, Top, Col 0 (5)
+        6:  { cx: 2426, cy: -96,  rot: 180 }, // Right Sheet, Top, Col 3 (6)
+        7:  { cx: 1108, cy: -96,  rot: 180 }, // Right Sheet, Top, Col 0 (7)
+        8:  { cx: 600,  cy: -96,  rot: 180 }, // Left Sheet, Top, Col 3 (8)
+        9:  { cx: 161,  cy: -96,  rot: 180 }, // Left Sheet, Top, Col 2 (9)
+        10: { cx: 1548, cy: -96,  rot: 180 }, // Right Sheet, Top, Col 1 (10)
+        11: { cx: 1987, cy: -96,  rot: 180 }, // Right Sheet, Top, Col 2 (11)
+        12: { cx: -278, cy: -96,  rot: 180 }, // Left Sheet, Top, Col 1 (12)
+        13: { cx: -278, cy: -732, rot: 0   }, // Left Sheet, Bot, Col 1 (13)
+        14: { cx: 1987, cy: -732, rot: 0   }, // Right Sheet, Bot, Col 2 (14)
+        15: { cx: 1548, cy: -732, rot: 0   }, // Right Sheet, Bot, Col 1 (15)
+        16: { cx: 161,  cy: -732, rot: 0   }  // Left Sheet, Bot, Col 2 (16)
     };
 
     var ALBUM_16_ARTBOARD_RECTS = {
-        1:  [380.75, -414.14, 819.95, -1050.62],
-        2:  [888.79, -414.14, 1327.99, -1050.62],
-        3:  [2206.39, -414.14, 2645.59, -1050.62],
-        4:  [-936.85, -414.14, -497.65, -1050.62],
-        5:  [-58.45, 222.34, 380.75, -414.14],
-        6:  [2206.39, 222.34, 2645.59, -414.14],
-        7:  [888.79, 222.34, 1327.99, -414.14],
-        8:  [380.75, 222.34, 819.95, -414.14],
-        9:  [-936.85, 222.34, -497.65, -414.14],
-        10: [1327.99, 222.34, 1767.19, -414.14],
-        11: [1767.19, 222.34, 2206.39, -414.14],
-        12: [-497.65, 222.34, -58.45, -414.14],
-        13: [-497.65, -414.14, -58.45, -1050.62],
-        14: [1767.19, -414.14, 2206.39, -1050.62],
-        15: [1327.99, -414.14, 1767.19, -1050.62],
-        16: [-58.45, -414.14, 380.75, -1050.62]
+        1:  [380.75, -414.14, 819.95, -1050.62],  // Left Sheet, Bot, Col 3
+        2:  [888.79, -414.14, 1327.99, -1050.62], // Right Sheet, Bot, Col 0
+        3:  [2206.39, -414.14, 2645.59, -1050.62],// Right Sheet, Bot, Col 3
+        4:  [-936.85, -414.14, -497.65, -1050.62],// Left Sheet, Bot, Col 0
+        5:  [-936.85, 222.34, -497.65, -414.14],  // Left Sheet, Top, Col 0 (5)
+        6:  [2206.39, 222.34, 2645.59, -414.14],  // Right Sheet, Top, Col 3 (6)
+        7:  [888.79, 222.34, 1327.99, -414.14],   // Right Sheet, Top, Col 0 (7)
+        8:  [380.75, 222.34, 819.95, -414.14],   // Left Sheet, Top, Col 3 (8)
+        9:  [-58.45, 222.34, 380.75, -414.14],    // Left Sheet, Top, Col 2 (9)
+        10: [1327.99, 222.34, 1767.19, -414.14],  // Right Sheet, Top, Col 1 (10)
+        11: [1767.19, 222.34, 2206.39, -414.14],  // Right Sheet, Top, Col 2 (11)
+        12: [-497.65, 222.34, -58.45, -414.14],   // Left Sheet, Top, Col 1 (12)
+        13: [-497.65, -414.14, -58.45, -1050.62], // Left Sheet, Bot, Col 1 (13)
+        14: [1767.19, -414.14, 2206.39, -1050.62],// Right Sheet, Bot, Col 2 (14)
+        15: [1327.99, -414.14, 1767.19, -1050.62],// Right Sheet, Bot, Col 1 (15)
+        16: [-58.45, -414.14, 380.75, -1050.62]   // Left Sheet, Bot, Col 2 (16)
     };
 
     function findArtboardForSlot(doc, target) {
@@ -314,16 +314,19 @@ $.global.FormaEngine = (function () {
 
     function getArtboardForPage(doc, pageNum, sectionType, requiredPages) {
         if (sectionType === "album_16") {
+            // Priority 1: Match by artboard name (e.g. "05 - Artboard 5", "Artboard 5", "12 - Artboard 12")
+            for (var a = 0; a < doc.artboards.length; a++) {
+                var abName = doc.artboards[a].name;
+                var m = abName.match(/Artboard\s*(\d+)/i);
+                if (m && parseInt(m[1], 10) === pageNum) {
+                    return doc.artboards[a];
+                }
+            }
+            // Priority 2: Match by exact slot position
             var tgt = ALBUM_TARGETS[pageNum];
             if (tgt) {
                 var abBySlot = findArtboardForSlot(doc, tgt);
                 if (abBySlot) return abBySlot;
-            }
-            for (var a = 0; a < doc.artboards.length; a++) {
-                var abName = doc.artboards[a].name;
-                if (abName === "Artboard " + pageNum || abName.match(new RegExp("(?:^|\\s|-)" + pageNum + "$"))) {
-                    return doc.artboards[a];
-                }
             }
         }
         var spatial = getSpatiallySortedArtboards(doc, requiredPages);
