@@ -219,6 +219,30 @@
         return (PAGE_ROTATION_16[pageNum] !== undefined) ? PAGE_ROTATION_16[pageNum] : 90;
     }
 
+    function repairRotatedClippingMasks(item) {
+        if (!item || item.typename !== "GroupItem") return;
+        try {
+            if (item.clipped) {
+                if (item.pageItems && item.pageItems.length === 2 && item.pageItems[1].typename === "GroupItem" && item.pageItems[1].pageItems.length === 1) {
+                    var nested = item.pageItems[1];
+                    var inner = nested.pageItems[0];
+                    inner.move(item, ElementPlacement.PLACEATEND);
+                    nested.remove();
+                }
+                item.clipped = false;
+                item.clipped = true;
+            }
+            if (item.pageItems) {
+                for (var i = 0; i < item.pageItems.length; i++) {
+                    var ch = item.pageItems[i];
+                    if (ch.typename === "GroupItem") {
+                        repairRotatedClippingMasks(ch);
+                    }
+                }
+            }
+        } catch (e) {}
+    }
+
     function placeOnArtboard(item, artboard, rotAngle) {
         var abRect = artboard.artboardRect;
         var abW = Math.abs(abRect[2] - abRect[0]);
@@ -226,6 +250,7 @@
 
         if (rotAngle && rotAngle !== 0) {
             item.rotate(rotAngle, true, true, true, true, Transformation.CENTER);
+            repairRotatedClippingMasks(item);
         }
 
         var abTargetCX = (abRect[0] + abRect[2]) / 2;
