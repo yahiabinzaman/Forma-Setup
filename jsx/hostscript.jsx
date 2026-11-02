@@ -415,7 +415,26 @@ $.global.FormaEngine = (function () {
         } catch (e) {}
     }
 
+    function releaseBrokenFrameOpacityMasks(doc, item) {
+        if (!item) return;
+        try {
+            var name = (item.name || "").toLowerCase();
+            if (name.indexOf("frame") !== -1 || name.indexOf("ribon") !== -1 || name.indexOf(".psd") !== -1) {
+                try {
+                    doc.selection = [item];
+                    app.executeMenuCommand("releaseMask");
+                } catch (eRel) {}
+            }
+            if (item.typename === "GroupItem" && item.pageItems) {
+                for (var i = 0; i < item.pageItems.length; i++) {
+                    releaseBrokenFrameOpacityMasks(doc, item.pageItems[i]);
+                }
+            }
+        } catch (e) {}
+    }
+
     function placeOnArtboard(item, artboard, rotAngle) {
+        var doc = app.activeDocument;
         var abRect = artboard.artboardRect;
         var abW = Math.abs(abRect[2] - abRect[0]);
         var abH = Math.abs(abRect[1] - abRect[3]);
@@ -423,6 +442,7 @@ $.global.FormaEngine = (function () {
         if (rotAngle && rotAngle !== 0) {
             item.rotate(rotAngle, true, true, true, true, Transformation.CENTER);
             repairRotatedClippingMasks(item);
+            releaseBrokenFrameOpacityMasks(doc, item);
         }
 
         var abTargetCX = (abRect[0] + abRect[2]) / 2;
