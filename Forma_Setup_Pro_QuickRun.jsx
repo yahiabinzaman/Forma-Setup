@@ -32,15 +32,8 @@
     function getPageTrimBounds(item, abW, abH) {
         if (!item) return null;
 
-        var TOL = 6;
-
-        function matchesTrim(w, h) {
-            if (!abW || !abH) return false;
-            return ((Math.abs(w - abW) <= TOL && Math.abs(h - abH) <= TOL) ||
-                    (Math.abs(w - abH) <= TOL && Math.abs(h - abW) <= TOL));
-        }
-
-        if (item.typename === "GroupItem" && item.clipped) {
+        // 1. If the item itself is a clipped group, its clipping path is the definitive page boundary
+        if (item.typename === "GroupItem" && item.clipped && item.pageItems) {
             for (var c = 0; c < item.pageItems.length; c++) {
                 if (item.pageItems[c].clipping) {
                     return item.pageItems[c].geometricBounds;
@@ -49,31 +42,67 @@
         }
 
         if (item.typename === "GroupItem" && item.pageItems && item.pageItems.length > 0) {
-            for (var i = item.pageItems.length - 1; i >= 0; i--) {
-                var ch = item.pageItems[i];
-                var cb = ch.geometricBounds;
-                var cw = Math.abs(cb[2] - cb[0]);
-                var ch_h = Math.abs(cb[1] - cb[3]);
-                if (matchesTrim(cw, ch_h)) {
-                    return cb;
-                }
-            }
+            var bestCandidate = null;
+            var bestDiff = 999999;
 
-            for (var j = 0; j < item.pageItems.length; j++) {
-                var ch2 = item.pageItems[j];
-                if (ch2.typename === "GroupItem" && ch2.clipped && ch2.pageItems.length > 0) {
-                    for (var k = 0; k < ch2.pageItems.length; k++) {
-                        if (ch2.pageItems[k].clipping) {
-                            var mb = ch2.pageItems[k].geometricBounds;
-                            var mw = Math.abs(mb[2] - mb[0]);
-                            var mh = Math.abs(mb[1] - mb[3]);
-                            if (matchesTrim(mw, mh)) return mb;
-                        }
+            // Helper to check how closely an element matches the page trim (allowing standard bleed up to 40 pt)
+            function testBounds(gb, isAtBottom) {
+                var w = Math.abs(gb[2] - gb[0]);
+                var h = Math.abs(gb[1] - gb[3]);
+                if (!abW || !abH) return;
+
+                // Check Portrait orientation match
+                var diffW = Math.abs(w - abW);
+                var diffH = Math.abs(h - abH);
+                if (diffW <= 40 && diffH <= 40) {
+                    var totalDiff = diffW + diffH;
+                    if (isAtBottom) totalDiff -= 15;
+                    if (totalDiff < bestDiff) {
+                        bestDiff = totalDiff;
+                        bestCandidate = gb;
+                    }
+                    return;
+                }
+
+                // Check Landscape orientation match
+                var diffW_rot = Math.abs(w - abH);
+                var diffH_rot = Math.abs(h - abW);
+                if (diffW_rot <= 40 && diffH_rot <= 40) {
+                    var totalDiffRot = diffW_rot + diffH_rot;
+                    if (isAtBottom) totalDiffRot -= 15;
+                    if (totalDiffRot < bestDiff) {
+                        bestDiff = totalDiffRot;
+                        bestCandidate = gb;
                     }
                 }
             }
+
+            // 2. Scan from bottom of group upwards (where page backgrounds/frames reside)
+            var count = item.pageItems.length;
+            for (var i = count - 1; i >= 0; i--) {
+                var ch = item.pageItems[i];
+                var isBottom = (i >= count - 3);
+                if (ch.typename === "PathItem" || ch.typename === "CompoundPathItem") {
+                    testBounds(ch.geometricBounds, isBottom);
+                } else if (ch.typename === "GroupItem") {
+                    if (ch.clipped && ch.pageItems) {
+                        for (var k = 0; k < ch.pageItems.length; k++) {
+                            if (ch.pageItems[k].clipping) {
+                                testBounds(ch.pageItems[k].geometricBounds, isBottom);
+                            }
+                        }
+                    } else {
+                        testBounds(ch.geometricBounds, isBottom);
+                    }
+                }
+            }
+
+            if (bestCandidate !== null) {
+                return bestCandidate;
+            }
         }
 
+        // 3. Fallback to geometricBounds of the entire item
         return item.geometricBounds;
     }
 
@@ -268,8 +297,6 @@
 
         if (rotAngle && rotAngle !== 0) {
             item.rotate(rotAngle, true, true, true, true, Transformation.CENTER);
-            repairRotatedClippingMasks(item);
-            releaseBrokenFrameOpacityMasks(doc, item);
         }
 
         var abTargetCX = (abRect[0] + abRect[2]) / 2;
