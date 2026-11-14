@@ -33,72 +33,124 @@
         }
 
         if (isAlbum) {
-            var lay = doc.layers[0];
+            // 1. Calculate dynamic horizontal divider (midX) and artboard bounds
+            var midX = null;
+            var abLeftBounds = null;
+            var abRightBounds = null;
 
-            // 1. Calculate horizontal midpoint between Left and Right sheets
-            var minX = 999999, maxX = -999999;
-            for (var i = 0; i < lay.pageItems.length; i++) {
-                var gb = lay.pageItems[i].geometricBounds;
-                if (gb[0] < minX) minX = gb[0];
-                if (gb[2] > maxX) maxX = gb[2];
+            if (doc.artboards.length >= 16) {
+                var abs = [];
+                for (var a = 0; a < doc.artboards.length; a++) {
+                    var ab = doc.artboards[a];
+                    var r = ab.artboardRect;
+                    var l_ = Math.min(r[0], r[2]);
+                    var r_ = Math.max(r[0], r[2]);
+                    var t_ = Math.max(r[1], r[3]);
+                    var b_ = Math.min(r[1], r[3]);
+                    abs.push({
+                        left: l_, right: r_, top: t_, bottom: b_,
+                        cx: (l_ + r_) / 2, cy: (t_ + b_) / 2
+                    });
+                }
+                abs.sort(function (a, b) { return a.cx - b.cx; });
+                var left8 = abs.slice(0, 8);
+                var right8 = abs.slice(8, 16);
+
+                var maxLeftAbX = -999999, minLeftAbX = 999999, maxLeftAbY = -999999, minLeftAbY = 999999;
+                for (var i = 0; i < 8; i++) {
+                    if (left8[i].right > maxLeftAbX) maxLeftAbX = left8[i].right;
+                    if (left8[i].left < minLeftAbX) minLeftAbX = left8[i].left;
+                    if (left8[i].top > maxLeftAbY) maxLeftAbY = left8[i].top;
+                    if (left8[i].bottom < minLeftAbY) minLeftAbY = left8[i].bottom;
+                }
+
+                var minRightAbX = 999999, maxRightAbX = -999999, maxRightAbY = -999999, minRightAbY = 999999;
+                for (var j = 0; j < 8; j++) {
+                    if (right8[j].left < minRightAbX) minRightAbX = right8[j].left;
+                    if (right8[j].right > maxRightAbX) maxRightAbX = right8[j].right;
+                    if (right8[j].top > maxRightAbY) maxRightAbY = right8[j].top;
+                    if (right8[j].bottom < minRightAbY) minRightAbY = right8[j].bottom;
+                }
+
+                midX = (maxLeftAbX + minRightAbX) / 2;
+                abLeftBounds = [minLeftAbX, maxLeftAbY, maxLeftAbX, minLeftAbY];
+                abRightBounds = [minRightAbX, maxRightAbY, maxRightAbX, minRightAbY];
             }
-            var midX = (minX + maxX) / 2;
 
-            // 2. Partition top-level items on layer 0 into Left (Front) and Right (Back)
-            var leftItems = [];
-            var rightItems = [];
-            for (var j = 0; j < lay.pageItems.length; j++) {
-                var it = lay.pageItems[j];
-                var cx = (it.geometricBounds[0] + it.geometricBounds[2]) / 2;
-                if (cx < midX) {
-                    leftItems.push(it);
-                } else {
-                    rightItems.push(it);
+            if (midX === null) {
+                var allMinX = 999999, allMaxX = -999999;
+                for (var lIdx = 0; lIdx < doc.layers.length; lIdx++) {
+                    var lyr = doc.layers[lIdx];
+                    for (var itIdx = 0; itIdx < lyr.pageItems.length; itIdx++) {
+                        var pIt = lyr.pageItems[itIdx];
+                        if (pIt.guides) continue;
+                        var bnd = pIt.geometricBounds;
+                        if (bnd[0] < allMinX) allMinX = bnd[0];
+                        if (bnd[2] > allMaxX) allMaxX = bnd[2];
+                    }
+                }
+                midX = (allMinX < allMaxX) ? (allMinX + allMaxX) / 2 : 0;
+            }
+
+            // 2. Scan all page items on both sides of midX
+            var minX_L = abLeftBounds ? abLeftBounds[0] : 999999;
+            var maxY_L = abLeftBounds ? abLeftBounds[1] : -999999;
+            var maxX_L = abLeftBounds ? abLeftBounds[2] : -999999;
+            var minY_L = abLeftBounds ? abLeftBounds[3] : 999999;
+
+            var minX_R = abRightBounds ? abRightBounds[0] : 999999;
+            var maxY_R = abRightBounds ? abRightBounds[1] : -999999;
+            var maxX_R = abRightBounds ? abRightBounds[2] : -999999;
+            var minY_R = abRightBounds ? abRightBounds[3] : 999999;
+
+            var foundL = (abLeftBounds !== null);
+            var foundR = (abRightBounds !== null);
+
+            for (var iLay = 0; iLay < doc.layers.length; iLay++) {
+                var curLay = doc.layers[iLay];
+                for (var pi = 0; pi < curLay.pageItems.length; pi++) {
+                    var it = curLay.pageItems[pi];
+                    if (it.guides) continue;
+                    var gb = it.geometricBounds;
+                    var cx = (gb[0] + gb[2]) / 2;
+
+                    if (cx < midX) {
+                        if (gb[0] < minX_L) minX_L = gb[0];
+                        if (gb[1] > maxY_L) maxY_L = gb[1];
+                        if (gb[2] > maxX_L) maxX_L = gb[2];
+                        if (gb[3] < minY_L) minY_L = gb[3];
+                        foundL = true;
+                    } else {
+                        if (gb[0] < minX_R) minX_R = gb[0];
+                        if (gb[1] > maxY_R) maxY_R = gb[1];
+                        if (gb[2] > maxX_R) maxX_R = gb[2];
+                        if (gb[3] < minY_R) minY_R = gb[3];
+                        foundR = true;
+                    }
                 }
             }
 
-            // 3. Native DOM grouping
-            var leftGroup = null;
-            if (leftItems.length > 1) {
-                leftGroup = lay.groupItems.add();
-                leftGroup.name = "Front Sheet (Sheet 1)";
-                for (var li = leftItems.length - 1; li >= 0; li--) {
-                    try {
-                        leftItems[li].move(leftGroup, ElementPlacement.PLACEATBEGINNING);
-                    } catch (e) {}
-                }
-            } else if (leftItems.length === 1) {
-                leftGroup = leftItems[0];
-            }
+            if (maxX_L > midX) maxX_L = midX;
+            if (minX_R < midX) minX_R = midX;
 
-            var rightGroup = null;
-            if (rightItems.length > 1) {
-                rightGroup = lay.groupItems.add();
-                rightGroup.name = "Back Sheet (Sheet 2)";
-                for (var ri = rightItems.length - 1; ri >= 0; ri--) {
-                    try {
-                        rightItems[ri].move(rightGroup, ElementPlacement.PLACEATBEGINNING);
-                    } catch (e) {}
-                }
-            } else if (rightItems.length === 1) {
-                rightGroup = rightItems[0];
-            }
+            var commonTop = Math.max(maxY_L, maxY_R);
+            var commonBottom = Math.min(minY_L, minY_R);
 
-            if (!leftGroup || !rightGroup) {
-                throw new Error("অ্যালবাম শিটের গ্রুপ তৈরি করা যায়নি!");
-            }
+            var bLeft = [minX_L, commonTop, maxX_L, commonBottom];
+            var bRight = [minX_R, commonTop, maxX_R, commonBottom];
 
-            var bLeft = leftGroup.geometricBounds;
-            var bRight = rightGroup.geometricBounds;
+            if (!foundL || !foundR) {
+                throw new Error("অ্যালবাম শিটের বাউন্ডস তৈরি করা যায়নি!");
+            }
 
             while (doc.artboards.length > 1) {
                 doc.artboards[doc.artboards.length - 1].remove();
             }
             doc.artboards[0].artboardRect = bLeft;
-            doc.artboards[0].name = "Front Sheet";
+            doc.artboards[0].name = "01 - Front Sheet";
 
             var abAlbum2 = doc.artboards.add(bRight);
-            abAlbum2.name = "Back Sheet";
+            abAlbum2.name = "02 - Back Sheet";
 
             doc.artboards.setActiveArtboardIndex(0);
             app.redraw();

@@ -516,32 +516,120 @@ $.global.FormaEngine = (function () {
         try { app.executeMenuCommand("unlockAll"); } catch (e) {}
         try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-        // Exact horizontal divider between Left (Front) and Right (Back) sheets
-        var DIVIDER_X = 854;
+        // 1. Calculate dynamic horizontal divider (DIVIDER_X) and artboard bounds
+        var DIVIDER_X = null;
+        var abLeftBounds = null;
+        var abRightBounds = null;
 
-        var leftItems = [];
-        var rightItems = [];
-        var minX_L = 999999, maxX_L = -999999, minY_L = 999999, maxY_L = -999999;
-        var minX_R = 999999, maxX_R = -999999, minY_R = 999999, maxY_R = -999999;
-        var foundL = false, foundR = false;
+        if (doc.artboards.length >= 16) {
+            var abs = [];
+            for (var a = 0; a < doc.artboards.length; a++) {
+                var ab = doc.artboards[a];
+                var r = ab.artboardRect;
+                var l_ = Math.min(r[0], r[2]);
+                var r_ = Math.max(r[0], r[2]);
+                var t_ = Math.max(r[1], r[3]);
+                var b_ = Math.min(r[1], r[3]);
+                abs.push({
+                    ab: ab,
+                    left: l_,
+                    right: r_,
+                    top: t_,
+                    bottom: b_,
+                    cx: (l_ + r_) / 2,
+                    cy: (t_ + b_) / 2
+                });
+            }
+
+            // Sort artboards by CX: first 8 are Left Sheet (Front), next 8 are Right Sheet (Back)
+            abs.sort(function (a, b) { return a.cx - b.cx; });
+            var left8 = abs.slice(0, 8);
+            var right8 = abs.slice(8, 16);
+
+            var maxLeftAbX = -999999, minLeftAbX = 999999, maxLeftAbY = -999999, minLeftAbY = 999999;
+            for (var i = 0; i < 8; i++) {
+                if (left8[i].right > maxLeftAbX) maxLeftAbX = left8[i].right;
+                if (left8[i].left < minLeftAbX) minLeftAbX = left8[i].left;
+                if (left8[i].top > maxLeftAbY) maxLeftAbY = left8[i].top;
+                if (left8[i].bottom < minLeftAbY) minLeftAbY = left8[i].bottom;
+            }
+
+            var minRightAbX = 999999, maxRightAbX = -999999, maxRightAbY = -999999, minRightAbY = 999999;
+            for (var j = 0; j < 8; j++) {
+                if (right8[j].left < minRightAbX) minRightAbX = right8[j].left;
+                if (right8[j].right > maxRightAbX) maxRightAbX = right8[j].right;
+                if (right8[j].top > maxRightAbY) maxRightAbY = right8[j].top;
+                if (right8[j].bottom < minRightAbY) minRightAbY = right8[j].bottom;
+            }
+
+            DIVIDER_X = (maxLeftAbX + minRightAbX) / 2;
+            abLeftBounds = [minLeftAbX, maxLeftAbY, maxLeftAbX, minLeftAbY];
+            abRightBounds = [minRightAbX, maxRightAbY, maxRightAbX, minRightAbY];
+        } else if (doc.artboards.length === 2) {
+            var r0 = doc.artboards[0].artboardRect;
+            var r1 = doc.artboards[1].artboardRect;
+            var r0_left = Math.min(r0[0], r0[2]);
+            var r0_right = Math.max(r0[0], r0[2]);
+            var r1_left = Math.min(r1[0], r1[2]);
+            var r1_right = Math.max(r1[0], r1[2]);
+            if (r0_right < r1_left) {
+                DIVIDER_X = (r0_right + r1_left) / 2;
+            } else if (r1_right < r0_left) {
+                DIVIDER_X = (r1_right + r0_left) / 2;
+            } else {
+                DIVIDER_X = (Math.min(r0_left, r1_left) + Math.max(r0_right, r1_right)) / 2;
+            }
+        }
+
+        // Fallback: calculate horizontal midpoint from artwork items
+        if (DIVIDER_X === null) {
+            var allMinX = 999999, allMaxX = -999999;
+            for (var lIdx = 0; lIdx < doc.layers.length; lIdx++) {
+                var lyr = doc.layers[lIdx];
+                for (var itIdx = 0; itIdx < lyr.pageItems.length; itIdx++) {
+                    var pIt = lyr.pageItems[itIdx];
+                    if (pIt.guides) continue;
+                    var b = pIt.geometricBounds;
+                    if (b[0] < allMinX) allMinX = b[0];
+                    if (b[2] > allMaxX) allMaxX = b[2];
+                }
+            }
+            if (allMinX < allMaxX) {
+                DIVIDER_X = (allMinX + allMaxX) / 2;
+            } else {
+                DIVIDER_X = 0;
+            }
+        }
+
+        // 2. Scan all page items on both sides of DIVIDER_X
+        var minX_L = abLeftBounds ? abLeftBounds[0] : 999999;
+        var maxY_L = abLeftBounds ? abLeftBounds[1] : -999999;
+        var maxX_L = abLeftBounds ? abLeftBounds[2] : -999999;
+        var minY_L = abLeftBounds ? abLeftBounds[3] : 999999;
+
+        var minX_R = abRightBounds ? abRightBounds[0] : 999999;
+        var maxY_R = abRightBounds ? abRightBounds[1] : -999999;
+        var maxX_R = abRightBounds ? abRightBounds[2] : -999999;
+        var minY_R = abRightBounds ? abRightBounds[3] : 999999;
+
+        var foundL = (abLeftBounds !== null);
+        var foundR = (abRightBounds !== null);
 
         for (var iLay = 0; iLay < doc.layers.length; iLay++) {
-            var lay = doc.layers[iLay];
-            for (var j = 0; j < lay.pageItems.length; j++) {
-                var it = lay.pageItems[j];
+            var curLay = doc.layers[iLay];
+            for (var j = 0; j < curLay.pageItems.length; j++) {
+                var it = curLay.pageItems[j];
                 if (it.guides) continue; // skip ruler guides
                 var gb = it.geometricBounds;
                 var cx = (gb[0] + gb[2]) / 2;
 
                 if (cx < DIVIDER_X) {
-                    leftItems.push(it);
                     if (gb[0] < minX_L) minX_L = gb[0];
                     if (gb[1] > maxY_L) maxY_L = gb[1];
                     if (gb[2] > maxX_L) maxX_L = gb[2];
                     if (gb[3] < minY_L) minY_L = gb[3];
                     foundL = true;
                 } else {
-                    rightItems.push(it);
                     if (gb[0] < minX_R) minX_R = gb[0];
                     if (gb[1] > maxY_R) maxY_R = gb[1];
                     if (gb[2] > maxX_R) maxX_R = gb[2];
@@ -551,50 +639,30 @@ $.global.FormaEngine = (function () {
             }
         }
 
-        // Safe DOM grouping (never throws "Can't make a group of objects that are within different groups")
-        var mainLay = doc.layers[0];
-        var leftGroup = null;
-        if (leftItems.length > 0) {
-            try {
-                leftGroup = mainLay.groupItems.add();
-                leftGroup.name = "Front Sheet (Sheet 1)";
-                for (var li = leftItems.length - 1; li >= 0; li--) {
-                    try {
-                        leftItems[li].move(leftGroup, ElementPlacement.PLACEATBEGINNING);
-                    } catch (e) {}
-                }
-            } catch (e) {}
+        // Strict boundary protection: sheets must NEVER overlap across DIVIDER_X
+        if (maxX_L > DIVIDER_X) maxX_L = DIVIDER_X;
+        if (minX_R < DIVIDER_X) minX_R = DIVIDER_X;
+
+        // Ensure vertical bounds are aligned for printing
+        var commonTop = Math.max(maxY_L, maxY_R);
+        var commonBottom = Math.min(minY_L, minY_R);
+
+        var bLeft = [minX_L, commonTop, maxX_L, commonBottom];
+        var bRight = [minX_R, commonTop, maxX_R, commonBottom];
+
+        if (!foundL || !foundR) {
+            throw new Error("অ্যালবাম শিটের বাউন্ডস তৈরি করা যায়নি!");
         }
 
-        var rightGroup = null;
-        if (rightItems.length > 0) {
-            try {
-                rightGroup = mainLay.groupItems.add();
-                rightGroup.name = "Back Sheet (Sheet 2)";
-                for (var ri = rightItems.length - 1; ri >= 0; ri--) {
-                    try {
-                        rightItems[ri].move(rightGroup, ElementPlacement.PLACEATBEGINNING);
-                    } catch (e) {}
-                }
-            } catch (e) {}
-        }
-
-        var bLeft = foundL ? [minX_L, maxY_L, maxX_L, minY_L] : (leftGroup ? leftGroup.geometricBounds : null);
-        var bRight = foundR ? [minX_R, maxY_R, maxX_R, minY_R] : (rightGroup ? rightGroup.geometricBounds : null);
-
-        if (!bLeft || !bRight) {
-            throw new Error("অ্যালবাম শিটের গ্রুপ তৈরি করা যায়নি!");
-        }
-
-        // 4. Remove extra artboards and set exactly 2 fitted artboards
+        // 3. Set exactly 2 fitted artboards without modifying or destroying user page groups/masks
         while (doc.artboards.length > 1) {
             doc.artboards[doc.artboards.length - 1].remove();
         }
         doc.artboards[0].artboardRect = bLeft;
-        doc.artboards[0].name = "Front Sheet";
+        doc.artboards[0].name = "01 - Front Sheet";
 
         var ab2 = doc.artboards.add(bRight);
-        ab2.name = "Back Sheet";
+        ab2.name = "02 - Back Sheet";
 
         doc.artboards.setActiveArtboardIndex(0);
         app.redraw();
