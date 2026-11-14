@@ -313,16 +313,12 @@
   }
 
   function runImposition() {
-    var txtJob = document.getElementById("txtCtpJobName");
-    var jobNameVal = txtJob ? txtJob.value.trim() : "";
-
     var payload = {
       diarySize: state.diarySize,
       sectionType: state.sectionType,
       formaBatch: state.formaBatch,
       mappingScheme: state.mappingScheme,
-      orientationMode: state.orientationMode,
-      jobNameBn: jobNameVal
+      orientationMode: state.orientationMode
     };
 
     showStatus("ফর্মা সেটআপ প্রক্রিয়াকরণ চলছে...", "info");
@@ -474,24 +470,9 @@
     }
   }
 
-  function autoFillJobName() {
-    var txt = document.getElementById("txtCtpJobName");
-    if (!txt) return;
-    ensureHostScript(function () {
-      csInterface.evalScript("FormaEngine.getActiveDocJobName()", function (res) {
-        if (res && res !== "null" && res !== "undefined" && res.length > 0) {
-          var bn = toBengaliWords(res);
-          txt.value = bn;
-        }
-      });
-    });
-  }
-
   function runCtpPrep() {
     var btn = document.getElementById("btnRunCtp");
-    var txt = document.getElementById("txtCtpJobName");
     var selMode = document.getElementById("selCtpColorMode");
-    var jobNameBn = txt ? txt.value.trim() : "";
     var modeVal = selMode ? selMode.value : "auto";
 
     if (btn) btn.disabled = true;
@@ -499,7 +480,6 @@
 
     ensureHostScript(function () {
       var ctpPayload = {
-        jobNameBn: jobNameBn,
         sectionType: state.sectionType,
         colorMode: modeVal
       };
@@ -569,10 +549,6 @@
               state.sectionType = info.detectedType;
               els.selSectionType.dispatchEvent(new Event("change"));
             }
-            if (info.jobName) {
-              var txtCtp = document.getElementById("txtCtpJobName");
-              if (txtCtp) txtCtp.value = toBengaliWords(info.jobName);
-            }
             renderPreview();
             updateCtpUI();
             if (!quiet) {
@@ -599,11 +575,6 @@
     var btnRestoreSheet = document.getElementById("btnRestoreSheet");
     if (btnRestoreSheet) {
       btnRestoreSheet.addEventListener("click", runRestoreSheet);
-    }
-
-    var btnAutoJobName = document.getElementById("btnAutoJobName");
-    if (btnAutoJobName) {
-      btnAutoJobName.addEventListener("click", autoFillJobName);
     }
 
     var btnRunCtp = document.getElementById("btnRunCtp");

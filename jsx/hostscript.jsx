@@ -456,37 +456,9 @@ $.global.FormaEngine = (function () {
     }
 
     function updatePlateSlugText(doc, jobNameBn) {
-        if (!doc || !jobNameBn || jobNameBn.length === 0) return 0;
-        var CHAPA = "\u099B\u09BE\u09AA\u09BE"; // ছাপা
-        var AL = "\u0986\u09B2"; // আল
-        var BYAK = "\u09AC\u09CD\u09AF\u09BE\u0995"; // ব্যাক
-        var JHURI = "\u099C\u09C1\u09DC\u09BF"; // জুড়ি
-        var FORMA = "\u09AB\u09B0\u09CD\u09AE\u09BE"; // ফর্মা
-
-        var updatedCount = 0;
-        for (var t = 0; t < doc.textFrames.length; t++) {
-            var tf = doc.textFrames[t];
-            var c = tf.contents;
-            if (c.length < 100 && c.indexOf(FORMA) === -1 && (c.indexOf(CHAPA) !== -1 || c.indexOf(AL) !== -1 || c.indexOf(JHURI) !== -1 || c.indexOf(BYAK) !== -1)) {
-                if (c.indexOf(jobNameBn) !== -1) {
-                    updatedCount++;
-                    continue;
-                }
-                var alIdx = c.indexOf(AL);
-                if (alIdx !== -1) {
-                    var suffix = c.substring(alIdx);
-                    tf.contents = jobNameBn + " - " + suffix;
-                } else if (c.indexOf("-") !== -1) {
-                    var parts = c.split("-");
-                    var sfx = parts.slice(1).join("-").replace(/^[\s\-_—]+/, "");
-                    tf.contents = jobNameBn + " - " + sfx;
-                } else {
-                    tf.contents = jobNameBn + " - " + c.replace(/^[\s\-_—]+/, "");
-                }
-                updatedCount++;
-            }
-        }
-        return updatedCount;
+        // Disabled: User manually places job name on plate slug.
+        // Completely disabled to protect artwork text frames (such as poems, titles containing "আলবিদা" or "আল", etc.).
+        return 0;
     }
 
     function isAlbumDoc(doc, sectionType) {
@@ -872,10 +844,6 @@ $.global.FormaEngine = (function () {
                     }
                 }
 
-                if (params.jobNameBn && params.jobNameBn.length > 0) {
-                    try { updatePlateSlugText(doc, params.jobNameBn); } catch(eSlug) {}
-                }
-
                 app.redraw();
                 return toJson({
                     success: true,
@@ -1133,17 +1101,7 @@ $.global.FormaEngine = (function () {
                 try { app.executeMenuCommand("unlockAll"); } catch (e) {}
                 try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-                // 2. Update Bottom Plate / Slug Text with Bengali Job Name
-                if (jobNameBn && jobNameBn.length > 0) {
-                    var slugUpdated = updatePlateSlugText(doc, jobNameBn);
-                    if (slugUpdated) {
-                        report.push("প্লেট টেক্সট আপডেট: " + jobNameBn);
-                    } else {
-                        report.push("প্লেট টেক্সট: স্লাগ ফ্রেম পাওয়া যায়নি");
-                    }
-                }
-
-                // 4. Color Mode Check: 4-Color (CMYK Full Color) vs 2-Color (Cyan & Black Only)
+                // 2. Color Mode Check: 4-Color (CMYK Full Color) vs 2-Color (Cyan & Black Only)
                 var is4Color = false;
                 if (colorMode === "4color") {
                     is4Color = true;
