@@ -304,7 +304,7 @@
         if (callback) callback();
       } else {
         var extRoot = csInterface.getSystemPath(SystemPath.EXTENSION);
-        var jsxPath = extRoot + "/jsx/hostscript.jsx";
+        var jsxPath = (extRoot + "/jsx/hostscript.jsx").replace(/\\/g, "/");
         csInterface.evalScript('$.evalFile("' + jsxPath + '")', function () {
           if (callback) callback();
         });
@@ -524,7 +524,12 @@
     if (!opened) {
       try {
         if (window.cep && window.cep.process && typeof window.cep.process.createProcess === "function") {
-          window.cep.process.createProcess("/usr/bin/open", url);
+          var isWin = (navigator.platform.indexOf("Win") !== -1);
+          if (isWin) {
+            window.cep.process.createProcess("C:\\Windows\\explorer.exe", url);
+          } else {
+            window.cep.process.createProcess("/usr/bin/open", url);
+          }
           opened = true;
         }
       } catch (e) {}
@@ -532,7 +537,12 @@
 
     if (!opened) {
       try {
-        csInterface.evalScript('try { var f = new File("/usr/bin/open"); if (f.exists) { app.system("/usr/bin/open \\"' + url + '\\""); } } catch(e){}');
+        var isWinPlat = (navigator.platform.indexOf("Win") !== -1);
+        if (isWinPlat) {
+          csInterface.evalScript('try { app.system("cmd.exe /c start \\"\\" \\"' + url + '\\""); } catch(e){}');
+        } else {
+          csInterface.evalScript('try { var f = new File("/usr/bin/open"); if (f.exists) { app.system("/usr/bin/open \\"' + url + '\\""); } } catch(e){}');
+        }
       } catch (e) {}
     }
   }

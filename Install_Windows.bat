@@ -20,9 +20,10 @@ echo [2/3] Deploying extension to Adobe CEP directory...
 set "TARGET_DIR=%APPDATA%\Adobe\CEP\extensions\com.colorlab.formasetup"
 if not exist "%APPDATA%\Adobe\CEP\extensions" mkdir "%APPDATA%\Adobe\CEP\extensions" >nul 2>&1
 if exist "%TARGET_DIR%" rmdir /s /q "%TARGET_DIR%" >nul 2>&1
+mkdir "%TARGET_DIR%" >nul 2>&1
 
 :: 3. Copy files
-xcopy /E /I /H /Y /Q "%~dp0*" "%TARGET_DIR%" >nul 2>&1
+xcopy /E /I /H /Y /Q "%~dp0*" "%TARGET_DIR%\" >nul 2>&1
 
 :: 4. Copy standalone script to Illustrator presets if present
 echo [3/3] Registering menu scripts...
