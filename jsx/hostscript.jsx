@@ -623,6 +623,102 @@ $.global.FormaEngine = (function () {
         return false;
     }
 
+    function unlockLayerTree(layers) {
+        if (!layers) return;
+        for (var i = 0; i < layers.length; i++) {
+            var lyr = layers[i];
+            try {
+                lyr.locked = false;
+                lyr.visible = true;
+            } catch (e) {}
+            if (lyr.layers && lyr.layers.length > 0) {
+                unlockLayerTree(lyr.layers);
+            }
+        }
+    }
+
+    function isCompoundGuide(cpItem) {
+        if (!cpItem || cpItem.clipping || !cpItem.pathItems || cpItem.pathItems.length === 0) return false;
+        for (var k = 0; k < cpItem.pathItems.length; k++) {
+            try {
+                if (!cpItem.pathItems[k].guides) return false;
+            } catch (e) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    function removeDocumentGuides(doc) {
+        var removed = 0;
+        try { app.executeMenuCommand("unlockAllGuides"); } catch (e) {}
+        try { app.executeMenuCommand("showAllGuides"); } catch (e) {}
+
+        function cleanContainer(container) {
+            if (!container || !container.pageItems) return;
+            for (var i = container.pageItems.length - 1; i >= 0; i--) {
+                var it = container.pageItems[i];
+                if (!it) continue;
+                try {
+                    if (it.locked) it.locked = false;
+                    if (it.hidden) it.hidden = false;
+                } catch (eUnl) {}
+
+                var tn = it.typename;
+                if (tn === "PathItem") {
+                    try {
+                        if (it.guides && !it.clipping) {
+                            it.remove();
+                            removed++;
+                        }
+                    } catch (eP) {}
+                } else if (tn === "CompoundPathItem") {
+                    if (isCompoundGuide(it)) {
+                        try {
+                            it.remove();
+                            removed++;
+                        } catch (eCp) {}
+                    }
+                } else if (tn === "GroupItem") {
+                    var hadChildren = (it.pageItems && it.pageItems.length > 0);
+                    cleanContainer(it);
+                    if (hadChildren && !it.clipped && it.pageItems && it.pageItems.length === 0) {
+                        try { it.remove(); } catch (eGrp) {}
+                    }
+                }
+            }
+        }
+
+        function scanLayerTree(layers) {
+            if (!layers) return;
+            for (var l = 0; l < layers.length; l++) {
+                cleanContainer(layers[l]);
+                if (layers[l].layers && layers[l].layers.length > 0) {
+                    scanLayerTree(layers[l].layers);
+                }
+            }
+        }
+
+        scanLayerTree(doc.layers);
+
+        // Final sweep on doc.pathItems for any remaining guide paths
+        if (doc.pathItems) {
+            for (var pi = doc.pathItems.length - 1; pi >= 0; pi--) {
+                var p = doc.pathItems[pi];
+                try {
+                    if (p && p.guides && !p.clipping) {
+                        if (p.locked) p.locked = false;
+                        p.remove();
+                        removed++;
+                    }
+                } catch (eSw) {}
+            }
+        }
+
+        try { app.executeMenuCommand("clearguide"); } catch (eClr) {}
+        return removed;
+    }
+
     function isFourColorDoc(doc, sectionType) {
         if (!doc) return false;
         var lower = doc.name.toLowerCase();
@@ -1369,15 +1465,16 @@ $.global.FormaEngine = (function () {
                 var sectionType = params.sectionType || "";
                 var colorMode = params.colorMode || "auto"; // "auto", "4color", "2color"
 
-                // 1. Unlock all layers and items so they can be processed (instant native)
-                for (var l = 0; l < doc.layers.length; l++) {
-                    doc.layers[l].locked = false;
-                    doc.layers[l].visible = true;
-                }
+                // 1. Unlock all layers, sublayers, objects, and guides (instant native)
+                unlockLayerTree(doc.layers);
                 try { app.executeMenuCommand("unlockAll"); } catch (e) {}
                 try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-                // 2. Color Mode Check: 4-Color (CMYK Full Color) vs 2-Color (Cyan & Black Only)
+                // 2. Remove all Illustrator guides & template guide numbers (1..16) before color/outline pass
+                var removedGuides = removeDocumentGuides(doc);
+                report.push("\u0997\u09BE\u0987\u09A1 \u0993 \u0997\u09CD\u09B0\u09BF\u09A1 \u09A8\u09AE\u09CD\u09AC\u09B0: " + removedGuides + " \u099F\u09BF \u0985\u09AA\u09B8\u09BE\u09B0\u09BF\u09A4");
+
+                // 3. Color Mode Check: 4-Color (CMYK Full Color) vs 2-Color (Cyan & Black Only)
                 var is4Color = false;
                 if (colorMode === "4color") {
                     is4Color = true;
@@ -1499,6 +1596,7 @@ $.global.FormaEngine = (function () {
                 app.redraw();
                 return toJson({
                     success: true,
+                    removedGuides: removedGuides,
                     message: "\u09B8\u09BF\u099F\u09BF\u09AA\u09BF \u09AA\u09CD\u09B0\u09B8\u09CD\u09A4\u09C1\u09A4\u09BF \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8!\n\u2022 " + report.join("\n\u2022 ")
                 });
 

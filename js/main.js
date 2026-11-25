@@ -499,7 +499,8 @@
           if (result.success) {
             var is4Col = (modeVal === "4color" || (modeVal === "auto" && (state.sectionType === "album_16" || state.sectionType === "album_8")));
             var modeTxt = is4Col ? "৪-কালার সিএমওয়াইকে (ফুল কালার অক্ষুণ্ণ)" : "২-কালার (ম্যাজেন্টা ও ইয়েলো অপসারিত)";
-            var successMsg = "সিটিপি প্রস্তুতি সম্পন্ন [" + modeTxt + "]! গ্রিড ক্লিন, ছবি এম্বেড ও টেক্সট আউটলাইন করা হয়েছে।";
+            var guideTxt = (typeof result.removedGuides === "number") ? ("গাইড ক্লিন (" + result.removedGuides + "টি)") : "গাইড ও গ্রিড ক্লিন";
+            var successMsg = "সিটিপি প্রস্তুতি সম্পন্ন [" + modeTxt + "]! " + guideTxt + ", ছবি এম্বেড ও টেক্সট আউটলাইন করা হয়েছে।";
             showStatus(successMsg, "success", 8000);
           } else {
             showStatus(result.error || "সিটিপি প্রিপারেশন ব্যর্থ হয়েছে।", "error", 7000);
