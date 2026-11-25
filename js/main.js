@@ -312,15 +312,22 @@
     }
   }
 
-  function ensureHostScript(callback) {
+  function ensureHostScript(callback, onError) {
     csInterface.evalScript('(typeof FormaEngine === "object" && typeof ReadyFileEngine === "object") ? "ready" : "missing"', function (res) {
       if (res === "ready") {
         if (callback) callback();
       } else {
         var extRoot = csInterface.getSystemPath(SystemPath.EXTENSION);
         var jsxPath = (extRoot + "/jsx/hostscript.jsx").replace(/\\/g, "/").replace(/^\/([A-Za-z]:)/, "$1");
-        csInterface.evalScript('$.evalFile(' + JSON.stringify(jsxPath) + ')', function () {
-          if (callback) callback();
+        var loader = 'try { var f = new File(' + JSON.stringify(jsxPath) + '); if (!f.exists) { "ERR:hostscript.jsx not found at " + f.fsName; } else { $.evalFile(f); (typeof FormaEngine === "object") ? "ready" : "ERR:FormaEngine undefined after evalFile"; } } catch (e) { "ERR:" + e.message; }';
+        csInterface.evalScript(loader, function (loadRes) {
+          if (loadRes === "ready") {
+            if (callback) callback();
+          } else {
+            var errMsg = "ExtendScript Load Failed: " + (loadRes || "unknown") + " (" + jsxPath + ")";
+            showStatus(errMsg, "error", 9000);
+            if (onError) onError(new Error(errMsg));
+          }
         });
       }
     });
@@ -353,6 +360,8 @@
           showStatus("Result: " + res, "error", 7000);
         }
       });
+    }, function () {
+      els.btnRunImposition.disabled = false;
     });
   }
 
@@ -376,6 +385,8 @@
           showStatus("Result: " + res, "error", 7000);
         }
       });
+    }, function () {
+      if (btn) btn.disabled = false;
     });
   }
 
@@ -399,6 +410,8 @@
           showStatus("Result: " + res, "error", 6000);
         }
       });
+    }, function () {
+      if (btn) btn.disabled = false;
     });
   }
 
@@ -509,6 +522,8 @@
           showStatus("Result: " + res, "error", 7000);
         }
       });
+    }, function () {
+      if (btn) btn.disabled = false;
     });
   }
 
@@ -1156,7 +1171,7 @@
             }
             resolve(res);
           });
-        });
+        }, reject);
       });
     }
 
