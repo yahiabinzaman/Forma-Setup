@@ -44,8 +44,12 @@
     function scanSizes(setupPath) {
         var root = new Folder(setupPath);
         if (!root.exists) return [];
-        var items = root.getFiles();
         var sizes = [];
+        var directAi = root.getFiles(isAiFile);
+        if (directAi && directAi.length > 0) {
+            sizes.push(root);
+        }
+        var items = root.getFiles();
         for (var i = 0; i < items.length; i++) {
             var f = items[i];
             if (!(f instanceof Folder)) continue;
@@ -56,6 +60,8 @@
             }
         }
         sizes.sort(function (a, b) {
+            if (a.fsName === root.fsName) return -1;
+            if (b.fsName === root.fsName) return 1;
             return a.displayName < b.displayName ? -1 : (a.displayName > b.displayName ? 1 : 0);
         });
         return sizes;

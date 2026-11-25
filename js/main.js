@@ -801,6 +801,10 @@
         return;
       }
 
+      var directAiFiles = fs.readdirSync(rfState.setupFolder).filter(function (f) {
+        return /\.ai$/i.test(f) && f.charAt(0) !== ".";
+      });
+
       var entries = fs.readdirSync(rfState.setupFolder, { withFileTypes: true });
       for (var i = 0; i < entries.length; i++) {
         var ent = entries[i];
@@ -817,25 +821,42 @@
         return a.localeCompare(b, undefined, { numeric: true, sensitivity: "base" });
       });
 
+      if (directAiFiles.length > 0) {
+        rfState.sizes.unshift(".");
+      }
+
       if (rfState.sizes.length === 0) {
         rfState.selectedSize = "";
       } else if (rfState.sizes.indexOf(rfState.selectedSize) === -1) {
-        rfState.selectedSize = rfState.sizes.indexOf("2 No Size") >= 0 ? "2 No Size" : rfState.sizes[0];
+        if (rfState.sizes.indexOf("2 No Size") >= 0) rfState.selectedSize = "2 No Size";
+        else rfState.selectedSize = rfState.sizes[0];
       }
 
       renderSizeButtons();
       loadTemplatesForSelectedSize();
     }
 
+    function getSizeDisplayLabel(sizeName) {
+      if (sizeName === ".") {
+        return (path && rfState.setupFolder) ? (path.basename(rfState.setupFolder) || "This Folder") : "This Folder";
+      }
+      return sizeName;
+    }
+
+    function getSizeFolderPath(sizeName) {
+      if (sizeName === ".") return rfState.setupFolder;
+      return path ? path.join(rfState.setupFolder, sizeName) : (rfState.setupFolder + "/" + sizeName);
+    }
+
     function renderSizeButtons() {
       elSizeBtnGroup.innerHTML = "";
       if (rfState.sizes.length === 0) {
         elBadgeSize.textContent = "Not Found";
-        elSizeBtnGroup.innerHTML = '<div style="grid-column:1/-1; color:#98989d; font-size:10px; text-align:center; padding:4px;">Setup Folder সিলেক্ট করুন</div>';
+        elSizeBtnGroup.innerHTML = '<div style="grid-column:1/-1; color:#98989d; font-size:10px; text-align:center; padding:4px;">Setup Folder বা .ai টেমপ্লেট ফোল্ডার সিলেক্ট করুন</div>';
         return;
       }
 
-      elBadgeSize.textContent = rfState.selectedSize;
+      elBadgeSize.textContent = getSizeDisplayLabel(rfState.selectedSize);
       for (var i = 0; i < rfState.sizes.length; i++) {
         (function (sizeName) {
           var btn = document.createElement("button");
@@ -844,11 +865,11 @@
 
           var title = document.createElement("span");
           title.className = "size-title";
-          title.textContent = sizeName;
+          title.textContent = getSizeDisplayLabel(sizeName);
 
           var desc = document.createElement("span");
           desc.className = "size-desc";
-          var count = fs.readdirSync(path.join(rfState.setupFolder, sizeName)).filter(function (f) {
+          var count = fs.readdirSync(getSizeFolderPath(sizeName)).filter(function (f) {
             return /\.ai$/i.test(f) && f.charAt(0) !== ".";
           }).length;
           desc.textContent = count + " templates";
@@ -874,7 +895,7 @@
         return;
       }
 
-      var sizeDir = path.join(rfState.setupFolder, rfState.selectedSize);
+      var sizeDir = getSizeFolderPath(rfState.selectedSize);
       var files = fs.readdirSync(sizeDir).filter(function (f) {
         return /\.ai$/i.test(f) && f.charAt(0) !== ".";
       });
@@ -1209,6 +1230,16 @@
         elBtnOpenFolder.classList.add("visible");
       }
     }
+
+    document.getElementById("rfBtnDefaultSetup").addEventListener("click", function () {
+      if (defaultSetup) {
+        rfState.setupFolder = defaultSetup;
+        rfState.selectedSize = "";
+        saveRfSettings();
+        scanSizes();
+        showStatus("ডিফল্ট Setup Folder লোড করা হয়েছে", "info", 3000);
+      }
+    });
 
     document.getElementById("rfBtnBrowseSetup").addEventListener("click", async function () {
       try {
