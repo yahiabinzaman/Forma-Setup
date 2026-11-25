@@ -13,7 +13,8 @@
     sectionType: "album_16",
     formaBatch: 1,
     mappingScheme: "scheme_artboard_match",
-    orientationMode: "auto"
+    orientationMode: "auto",
+    detectedIs4Color: null
   };
 
   var BN_DIGITS = ["০", "১", "২", "৩", "৪", "৫", "৬", "৭", "৮", "৯"];
@@ -119,6 +120,7 @@
   function initSectionSelection() {
     els.selSectionType.addEventListener("change", function () {
       state.sectionType = els.selSectionType.value;
+      state.detectedIs4Color = null;
 
       if (state.sectionType === "inner_32") {
         els.batchGroup.style.display = "flex";
@@ -317,9 +319,9 @@
       if (res === "ready") {
         if (callback) callback();
       } else {
-        var extRoot = csInterface.getSystemPath(SystemPath.EXTENSION);
+        var extRoot = csInterface.getSystemPath(SystemPath.EXTENSION).replace(/[\/\\]+$/, "");
         var jsxPath = (extRoot + "/jsx/hostscript.jsx").replace(/\\/g, "/").replace(/^\/([A-Za-z]:)/, "$1");
-        var loader = 'try { var f = new File(' + JSON.stringify(jsxPath) + '); if (!f.exists) { "ERR:hostscript.jsx not found at " + f.fsName; } else { $.evalFile(f); (typeof FormaEngine === "object") ? "ready" : "ERR:FormaEngine undefined after evalFile"; } } catch (e) { "ERR:" + e.message; }';
+        var loader = 'try { var f = new File(' + JSON.stringify(jsxPath) + '); if (!f.exists) { "ERR:hostscript.jsx not found at " + f.fsName; } else { $.evalFile(f); (typeof FormaEngine === "object" && typeof ReadyFileEngine === "object") ? "ready" : "ERR:Engine undefined after evalFile"; } } catch (e) { "ERR:" + e.message; }';
         csInterface.evalScript(loader, function (loadRes) {
           if (loadRes === "ready") {
             if (callback) callback();
@@ -346,7 +348,7 @@
     els.btnRunImposition.disabled = true;
 
     ensureHostScript(function () {
-      var script = "FormaEngine.executeImposition('" + JSON.stringify(payload) + "')";
+      var script = "FormaEngine.executeImposition(" + JSON.stringify(JSON.stringify(payload)) + ")";
       csInterface.evalScript(script, function (res) {
         els.btnRunImposition.disabled = false;
         try {
@@ -371,7 +373,7 @@
     showStatus("প্রিন্ট ডেমোর জন্য আর্টবোর্ড প্রস্তুত করা হচ্ছে...", "info");
 
     ensureHostScript(function () {
-      var script = "FormaEngine.executePrintDemo('" + state.sectionType + "')";
+      var script = "FormaEngine.executePrintDemo(" + JSON.stringify(state.sectionType) + ")";
       csInterface.evalScript(script, function (res) {
         if (btn) btn.disabled = false;
         try {
@@ -396,7 +398,7 @@
     showStatus("আর্টবোর্ড পুরো শিটে ফিট করা হচ্ছে...", "info");
 
     ensureHostScript(function () {
-      var script = "FormaEngine.restoreFullSheet('" + state.sectionType + "')";
+      var script = "FormaEngine.restoreFullSheet(" + JSON.stringify(state.sectionType) + ")";
       csInterface.evalScript(script, function (res) {
         if (btn) btn.disabled = false;
         try {
@@ -456,14 +458,9 @@
     "furqan": "ফুরকান"
   };
 
-  function toBengaliWords(engStr) {
-    if (!engStr) return "";
-    var words = engStr.trim().split(/\s+/);
-    var bnWords = words.map(function (w) {
-      var key = w.toLowerCase().replace(/[^a-z]/g, "");
-      return BENGALI_DICTIONARY[key] || w;
-    });
-    return bnWords.join(" ");
+  function getEffectiveAuto4Color() {
+    if (state.detectedIs4Color !== null) return state.detectedIs4Color;
+    return (state.sectionType === "album_16" || state.sectionType === "album_8");
   }
 
   function updateCtpUI() {
@@ -475,9 +472,7 @@
     var is4Color = false;
     if (mode === "4color") is4Color = true;
     else if (mode === "2color") is4Color = false;
-    else {
-      is4Color = (state.sectionType === "album_16" || state.sectionType === "album_8");
-    }
+    else is4Color = getEffectiveAuto4Color();
 
     if (badge) {
       badge.textContent = is4Color ? "৪-কালার সিএমওয়াইকে" : "২-কালার প্লেট";
@@ -497,23 +492,23 @@
     var modeVal = selMode ? selMode.value : "auto";
 
     if (btn) btn.disabled = true;
-    showStatus("সিটিপি প্রস্তুতি (গ্রিড ক্লিন, আউটলাইন, এম্বেড) চলছে...", "info");
+    showStatus("সিটিপি প্রস্তুতি (গাইড ক্লিন, এক্সপ্যান্ড, এম্বেড, আউটলাইন) চলছে...", "info");
 
     ensureHostScript(function () {
       var ctpPayload = {
         sectionType: state.sectionType,
         colorMode: modeVal
       };
-      var script = "FormaEngine.executeCtpPrep('" + JSON.stringify(ctpPayload).replace(/'/g, "\\'") + "')";
+      var script = "FormaEngine.executeCtpPrep(" + JSON.stringify(JSON.stringify(ctpPayload)) + ")";
       csInterface.evalScript(script, function (res) {
         if (btn) btn.disabled = false;
         try {
           var result = JSON.parse(res);
           if (result.success) {
-            var is4Col = (modeVal === "4color" || (modeVal === "auto" && (state.sectionType === "album_16" || state.sectionType === "album_8")));
+            var is4Col = (modeVal === "4color" || (modeVal === "auto" && getEffectiveAuto4Color()));
             var modeTxt = is4Col ? "৪-কালার সিএমওয়াইকে (ফুল কালার অক্ষুণ্ণ)" : "২-কালার (ম্যাজেন্টা ও ইয়েলো অপসারিত)";
-            var guideTxt = (typeof result.removedGuides === "number") ? ("গাইড ক্লিন (" + result.removedGuides + "টি)") : "গাইড ও গ্রিড ক্লিন";
-            var successMsg = "সিটিপি প্রস্তুতি সম্পন্ন [" + modeTxt + "]! " + guideTxt + ", ছবি এম্বেড ও টেক্সট আউটলাইন করা হয়েছে।";
+            var guideTxt = (typeof result.removedGuides === "number") ? ("গাইড ক্লিন (" + result.removedGuides + "টি)") : "গাইড ক্লিন";
+            var successMsg = "সিটিপি প্রস্তুতি সম্পন্ন [" + modeTxt + "]! " + guideTxt + ", এক্সপ্যান্ড, ছবি এম্বেড ও টেক্সট আউটলাইন করা হয়েছে।";
             showStatus(successMsg, "success", 8000);
           } else {
             showStatus(result.error || "সিটিপি প্রিপারেশন ব্যর্থ হয়েছে।", "error", 7000);
@@ -562,10 +557,11 @@
     if (!opened) {
       try {
         var isWinPlat = (navigator.platform.indexOf("Win") !== -1);
+        var safeUrl = JSON.stringify(url);
         if (isWinPlat) {
-          csInterface.evalScript('try { app.system("cmd.exe /c start \\"\\" \\"' + url + '\\""); } catch(e){}');
+          csInterface.evalScript('try { app.system("cmd.exe /c start \\"\\" " + ' + safeUrl + '); } catch(e){}');
         } else {
-          csInterface.evalScript('try { var f = new File("/usr/bin/open"); if (f.exists) { app.system("/usr/bin/open \\"' + url + '\\""); } } catch(e){}');
+          csInterface.evalScript('try { var f = new File("/usr/bin/open"); if (f.exists) { app.system("/usr/bin/open " + ' + safeUrl + '); } } catch(e){}');
         }
       } catch (e) {}
     }
@@ -583,6 +579,7 @@
               state.sectionType = info.detectedType;
               els.selSectionType.dispatchEvent(new Event("change"));
             }
+            state.detectedIs4Color = (typeof info.isFourColor === "boolean") ? info.isFourColor : null;
             renderPreview();
             updateCtpUI();
             if (!quiet) {
@@ -639,8 +636,38 @@
       exec = require("child_process").exec;
     } catch (e) {}
 
+    function findDefaultSetupFolder() {
+      if (!os || !path) return "";
+      var home = os.homedir();
+      var candidates = [
+        path.join(home, "Downloads", "Setup Folder"),
+        path.join(home, "OneDrive", "Downloads", "Setup Folder"),
+        path.join(home, "Desktop", "Setup Folder"),
+        path.join(home, "OneDrive", "Desktop", "Setup Folder")
+      ];
+      if (fs) {
+        for (var i = 0; i < candidates.length; i++) {
+          try {
+            if (fs.existsSync(candidates[i])) return candidates[i];
+          } catch (e) {}
+        }
+      }
+      return candidates[0];
+    }
+
+    function safeReadAiFiles(dirPath) {
+      if (!fs || !dirPath) return [];
+      try {
+        return fs.readdirSync(dirPath).filter(function (f) {
+          return /\.ai$/i.test(f) && f.charAt(0) !== ".";
+        });
+      } catch (e) {
+        return [];
+      }
+    }
+
     var RF_STORAGE_KEY = "colorlab_forma_ready_files_v1";
-    var defaultSetup = (os && path) ? path.join(os.homedir(), "Downloads", "Setup Folder") : "";
+    var defaultSetup = findDefaultSetupFolder();
 
     var rfState = {
       setupFolder: defaultSetup,
@@ -793,7 +820,7 @@
       var prefix = idxAt >= 0 ? tplFileName.slice(0, idxAt + 1) : tplFileName.replace(/\.ai$/i, " @");
       if (isInner) {
         var nn = toEnTwoDigit(formaNum);
-        prefix = prefix.replace(/\b(Forma\s+)\d{2}\b/i, "$1" + nn);
+        prefix = prefix.replace(/\b(Forma\s+)\d{1,2}\b/i, "$1" + nn);
       }
       return prefix + englishName + ".ai";
     }
@@ -816,20 +843,20 @@
         return;
       }
 
-      var directAiFiles = fs.readdirSync(rfState.setupFolder).filter(function (f) {
-        return /\.ai$/i.test(f) && f.charAt(0) !== ".";
-      });
+      var directAiFiles = safeReadAiFiles(rfState.setupFolder);
 
-      var entries = fs.readdirSync(rfState.setupFolder, { withFileTypes: true });
+      var entries = [];
+      try {
+        entries = fs.readdirSync(rfState.setupFolder, { withFileTypes: true });
+      } catch (e) {
+        entries = [];
+      }
       for (var i = 0; i < entries.length; i++) {
         var ent = entries[i];
         if (!ent.isDirectory()) continue;
         if (ent.name.charAt(0) === "." || ent.name === "Ready_File_Generator") continue;
         var dirPath = path.join(rfState.setupFolder, ent.name);
-        var files = fs.readdirSync(dirPath).filter(function (f) {
-          return /\.ai$/i.test(f) && f.charAt(0) !== ".";
-        });
-        if (files.length > 0) rfState.sizes.push(ent.name);
+        if (safeReadAiFiles(dirPath).length > 0) rfState.sizes.push(ent.name);
       }
 
       rfState.sizes.sort(function (a, b) {
@@ -884,9 +911,7 @@
 
           var desc = document.createElement("span");
           desc.className = "size-desc";
-          var count = fs.readdirSync(getSizeFolderPath(sizeName)).filter(function (f) {
-            return /\.ai$/i.test(f) && f.charAt(0) !== ".";
-          }).length;
+          var count = safeReadAiFiles(getSizeFolderPath(sizeName)).length;
           desc.textContent = count + " templates";
 
           btn.appendChild(title);
@@ -911,9 +936,7 @@
       }
 
       var sizeDir = getSizeFolderPath(rfState.selectedSize);
-      var files = fs.readdirSync(sizeDir).filter(function (f) {
-        return /\.ai$/i.test(f) && f.charAt(0) !== ".";
-      });
+      var files = safeReadAiFiles(sizeDir);
 
       var order = { color4: 1, inner: 2, note: 3, other: 4 };
       var list = files.map(function (f) {
@@ -1058,6 +1081,7 @@
         ? path.join(rfState.outputFolder, "@" + engSafe)
         : rfState.outputFolder;
 
+      var seenOutputNames = {};
       for (var i = 0; i < rfState.templates.length; i++) {
         var tpl = rfState.templates[i];
         var key = rfState.selectedSize + "::" + tpl.fileName;
@@ -1067,6 +1091,7 @@
           for (var c = 0; c < rfState.innerCount; c++) {
             var fNum = rfState.innerStart + c;
             var outName = buildOutputFileName(tpl.fileName, engSafe, true, fNum);
+            var lowerName = outName.toLowerCase();
             jobs.push({
               templatePath: tpl.fullPath,
               outputPath: path ? path.join(destBase, outName) : destBase + "/" + outName,
@@ -1075,11 +1100,14 @@
               isInner: true,
               formaNum: fNum,
               banglaName: bnClean,
-              insideHint: "ফর্মা - " + toBnTwoDigit(fNum) + "  |  " + bnClean
+              insideHint: "ফর্মা - " + toBnTwoDigit(fNum) + "  |  " + bnClean,
+              isDuplicate: Boolean(seenOutputNames[lowerName])
             });
+            seenOutputNames[lowerName] = true;
           }
         } else {
           var outSingle = buildOutputFileName(tpl.fileName, engSafe, false, 1);
+          var lowerSingle = outSingle.toLowerCase();
           jobs.push({
             templatePath: tpl.fullPath,
             outputPath: path ? path.join(destBase, outSingle) : destBase + "/" + outSingle,
@@ -1088,8 +1116,10 @@
             isInner: false,
             formaNum: 1,
             banglaName: bnClean,
-            insideHint: bnClean
+            insideHint: bnClean,
+            isDuplicate: Boolean(seenOutputNames[lowerSingle])
           });
+          seenOutputNames[lowerSingle] = true;
         }
       }
 
@@ -1139,15 +1169,18 @@
         return;
       }
 
+      var hasCollision = false;
       elPreviewList.innerHTML = "";
       for (var i = 0; i < jobs.length; i++) {
         var job = jobs[i];
+        if (job.isDuplicate) hasCollision = true;
         var row = document.createElement("div");
         row.className = "rf-preview-row";
 
         var fEl = document.createElement("div");
         fEl.className = "rf-preview-file";
-        fEl.textContent = (i + 1) + ". " + job.outputName;
+        fEl.textContent = (i + 1) + ". " + job.outputName + (job.isDuplicate ? " [ডুপ্লিকেট]" : "");
+        if (job.isDuplicate) fEl.style.color = "#ff9f0a";
 
         var tEl = document.createElement("div");
         tEl.className = "rf-preview-text";
@@ -1156,6 +1189,11 @@
         row.appendChild(fEl);
         row.appendChild(tEl);
         elPreviewList.appendChild(row);
+      }
+
+      if (hasCollision) {
+        elEngWarn.style.display = "block";
+        elEngWarn.textContent = "একই নামের ডুপ্লিকেট ফাইল আছে—ভিন্ন ফর্মা টেমপ্লেট রাখুন";
       }
 
       elBtnGenerate.disabled = rfState.isRunning;
@@ -1247,6 +1285,7 @@
     }
 
     document.getElementById("rfBtnDefaultSetup").addEventListener("click", function () {
+      defaultSetup = findDefaultSetupFolder();
       if (defaultSetup) {
         rfState.setupFolder = defaultSetup;
         rfState.selectedSize = "";
@@ -1376,7 +1415,7 @@
         var isWin = (typeof process !== "undefined" && process.platform === "win32") ||
                     (navigator.platform && navigator.platform.indexOf("Win") !== -1);
         if (isWin) {
-          exec('explorer "' + folder.replace(/"/g, '\\"') + '"');
+          exec('explorer "' + folder.replace(/\//g, "\\").replace(/"/g, '\\"') + '"');
         } else {
           exec('open "' + folder.replace(/"/g, '\\"') + '"');
         }

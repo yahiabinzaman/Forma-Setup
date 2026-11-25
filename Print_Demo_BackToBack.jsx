@@ -16,27 +16,55 @@
 
     var doc = app.activeDocument;
 
-    try {
-        // 1. Unlock all layers and page items
-        for (var l = 0; l < doc.layers.length; l++) {
-            doc.layers[l].locked = false;
-            doc.layers[l].visible = true;
+    function forEachLayer(layers, fn) {
+        if (!layers) return;
+        for (var i = 0; i < layers.length; i++) {
+            var lyr = layers[i];
+            fn(lyr);
+            if (lyr.layers && lyr.layers.length > 0) {
+                forEachLayer(lyr.layers, fn);
+            }
         }
+    }
+
+    try {
+        // 1. Unlock all layers, sublayers, and page items
+        forEachLayer(doc.layers, function (lyr) {
+            try {
+                lyr.locked = false;
+                lyr.visible = true;
+            } catch (eLyr) {}
+        });
         try { app.executeMenuCommand("unlockAll"); } catch (e) {}
         try { app.executeMenuCommand("showAll"); } catch (e) {}
 
         var lower = doc.name.toLowerCase();
-        var isJhuri = (lower.indexOf("jhuri") !== -1 || lower.indexOf("front & back") !== -1 || lower.indexOf("font & back") !== -1);
+        var isJhuri = (
+            lower.indexOf("jhuri") !== -1 ||
+            lower.indexOf("front & back") !== -1 ||
+            lower.indexOf("font & back") !== -1 ||
+            doc.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
+            doc.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1
+        );
         var isBackToBack = (lower.indexOf("back to back") !== -1 || lower.indexOf("back-to-back") !== -1);
         if (!isJhuri && !isBackToBack && doc.textFrames) {
             try {
                 for (var tf = 0; tf < doc.textFrames.length; tf++) {
                     var tc = doc.textFrames[tf].contents;
-                    if (tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || tc.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) {
-                        isJhuri = true; break;
+                    if (tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
+                        tc.indexOf("\u099C\u09C1\u09A1\u09BC\u09BF") !== -1 ||
+                        tc.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1 ||
+                        tc.indexOf("\u09AB\u09CD\u09B0\u09A8\u09CD\u099F \u09B8\u09BE\u0987\u09A1") !== -1 ||
+                        tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u09B8\u09BE\u0987\u09A1") !== -1 ||
+                        tc.indexOf("d\u00AB\u203AU mvBW") !== -1 ||
+                        tc.indexOf("e\u00A8vK mvBW") !== -1) {
+                        isJhuri = true;
+                        break;
                     }
-                    if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1) {
-                        isBackToBack = true; break;
+                    if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 ||
+                        tc.toLowerCase().indexOf("back to back") !== -1) {
+                        isBackToBack = true;
+                        break;
                     }
                 }
             } catch (eTxt) {}
@@ -44,7 +72,17 @@
         var isAlbum = isJhuri || (!isBackToBack && lower.indexOf("album") !== -1);
         if (!isAlbum && !isBackToBack && doc.artboards.length === 16) {
             var r0 = doc.artboards[0].artboardRect;
-            if (Math.abs(r0[1] - r0[3]) > Math.abs(r0[2] - r0[0])) isAlbum = true;
+            var w0 = Math.abs(r0[2] - r0[0]);
+            var h0 = Math.abs(r0[1] - r0[3]);
+            if (h0 > w0) {
+                var xs = [];
+                for (var xi = 0; xi < doc.artboards.length; xi++) {
+                    var xr = doc.artboards[xi].artboardRect;
+                    xs.push((xr[0] + xr[2]) / 2);
+                }
+                xs.sort(function (a, b) { return a - b; });
+                if ((xs[8] - xs[7]) > w0 * 0.15) isAlbum = true;
+            }
         }
 
         if (isAlbum) {
@@ -90,12 +128,20 @@
                 midX = (maxLeftAbX + minRightAbX) / 2;
                 abLeftBounds = [minLeftAbX, maxLeftAbY, maxLeftAbX, minLeftAbY];
                 abRightBounds = [minRightAbX, maxRightAbY, maxRightAbX, minRightAbY];
+            } else if (doc.artboards.length === 2) {
+                var r0_ = doc.artboards[0].artboardRect;
+                var r1_ = doc.artboards[1].artboardRect;
+                var r0L = Math.min(r0_[0], r0_[2]), r0R = Math.max(r0_[0], r0_[2]);
+                var r1L = Math.min(r1_[0], r1_[2]), r1R = Math.max(r1_[0], r1_[2]);
+                if (r0R < r1L) midX = (r0R + r1L) / 2;
+                else if (r1R < r0L) midX = (r1R + r0L) / 2;
+                else midX = (Math.min(r0L, r1L) + Math.max(r0R, r1R)) / 2;
             }
 
             if (midX === null) {
                 var allMinX = 999999, allMaxX = -999999;
-                for (var lIdx = 0; lIdx < doc.layers.length; lIdx++) {
-                    var lyr = doc.layers[lIdx];
+                forEachLayer(doc.layers, function (lyr) {
+                    if (!lyr.pageItems) return;
                     for (var itIdx = 0; itIdx < lyr.pageItems.length; itIdx++) {
                         var pIt = lyr.pageItems[itIdx];
                         if (pIt.guides) continue;
@@ -103,7 +149,7 @@
                         if (bnd[0] < allMinX) allMinX = bnd[0];
                         if (bnd[2] > allMaxX) allMaxX = bnd[2];
                     }
-                }
+                });
                 midX = (allMinX < allMaxX) ? (allMinX + allMaxX) / 2 : 0;
             }
 
@@ -121,8 +167,8 @@
             var foundL = (abLeftBounds !== null);
             var foundR = (abRightBounds !== null);
 
-            for (var iLay = 0; iLay < doc.layers.length; iLay++) {
-                var curLay = doc.layers[iLay];
+            forEachLayer(doc.layers, function (curLay) {
+                if (!curLay.pageItems) return;
                 for (var pi = 0; pi < curLay.pageItems.length; pi++) {
                     var it = curLay.pageItems[pi];
                     if (it.guides) continue;
@@ -143,7 +189,7 @@
                         foundR = true;
                     }
                 }
-            }
+            });
 
             if (maxX_L > midX) maxX_L = midX;
             if (minX_R < midX) minX_R = midX;
@@ -174,7 +220,7 @@
             return;
         }
 
-        // Inner / Note: 1 big sheet split into left & right halves
+        // Inner / Note / 4-Color Back-To-Back: 1 big sheet split into left & right halves
         while (doc.artboards.length > 1) {
             doc.artboards[doc.artboards.length - 1].remove();
         }
@@ -189,14 +235,13 @@
         var bottom = rect[3];
 
         var totalW = right - left;
-        var totalH = top - bottom;
         var halfW = totalW / 2;
 
         doc.artboards[0].artboardRect = [left, top, left + halfW, bottom];
-        doc.artboards[0].name = "Left Half";
+        doc.artboards[0].name = "01 - Left (Half)";
 
         var ab2 = doc.artboards.add([left + halfW, top, right, bottom]);
-        ab2.name = "Right Half";
+        ab2.name = "02 - Right (Half)";
 
         doc.artboards.setActiveArtboardIndex(0);
         app.redraw();

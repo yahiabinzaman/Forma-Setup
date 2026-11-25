@@ -674,7 +674,7 @@ select:focus, input[type="text"]:focus {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-  direction: rtl;
+  direction: ltr;
   text-align: left;
   user-select: text;
 }

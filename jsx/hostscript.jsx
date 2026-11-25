@@ -459,47 +459,15 @@ $.global.FormaEngine = (function () {
         return (PAGE_ROTATION_16[pageNum] !== undefined) ? PAGE_ROTATION_16[pageNum] : 90;
     }
 
-    function repairRotatedClippingMasks(item) {
-        if (!item || item.typename !== "GroupItem") return;
-        try {
-            if (item.clipped) {
-                // If the clipped group contains a single-item Group wrapper, unwrap it to fix Illustrator clipping bug
-                if (item.pageItems && item.pageItems.length === 2 && item.pageItems[1].typename === "GroupItem" && item.pageItems[1].pageItems.length === 1) {
-                    var nested = item.pageItems[1];
-                    var inner = nested.pageItems[0];
-                    inner.move(item, ElementPlacement.PLACEATEND);
-                    nested.remove();
-                }
-                item.clipped = false;
-                item.clipped = true;
+    function forEachLayer(layers, fn) {
+        if (!layers) return;
+        for (var i = 0; i < layers.length; i++) {
+            var lyr = layers[i];
+            fn(lyr);
+            if (lyr.layers && lyr.layers.length > 0) {
+                forEachLayer(lyr.layers, fn);
             }
-            if (item.pageItems) {
-                for (var i = 0; i < item.pageItems.length; i++) {
-                    var ch = item.pageItems[i];
-                    if (ch.typename === "GroupItem") {
-                        repairRotatedClippingMasks(ch);
-                    }
-                }
-            }
-        } catch (e) {}
-    }
-
-    function releaseBrokenFrameOpacityMasks(doc, item) {
-        if (!item) return;
-        try {
-            var name = (item.name || "").toLowerCase();
-            if (name.indexOf("frame") !== -1 || name.indexOf("ribon") !== -1 || name.indexOf(".psd") !== -1) {
-                try {
-                    doc.selection = [item];
-                    app.executeMenuCommand("releaseMask");
-                } catch (eRel) {}
-            }
-            if (item.typename === "GroupItem" && item.pageItems) {
-                for (var i = 0; i < item.pageItems.length; i++) {
-                    releaseBrokenFrameOpacityMasks(doc, item.pageItems[i]);
-                }
-            }
-        } catch (e) {}
+        }
     }
 
     function placeOnArtboard(item, artboard, rotAngle) {
@@ -550,32 +518,35 @@ $.global.FormaEngine = (function () {
         item.translate(targetCX - curTrimCX, targetCY - curTrimCY);
     }
 
-    function isNoteSpreadCandidate(doc, sel) {
-        if (!doc || !sel || doc.artboards.length < 16) return false;
-        if (sel.length !== 8 && sel.length !== 1) return false;
-        var first = sel[0];
-        if (!first) return false;
-        var gb = getItemBounds(first);
+    function analyzeNoteSpreadItem(doc, item) {
+        if (!doc || !item || doc.artboards.length < 1) {
+            return { isSpread: false, isPortrait: false };
+        }
+        var gb = getItemBounds(item);
+        if (!gb) return { isSpread: false, isPortrait: false };
         var itemW = Math.abs(gb[2] - gb[0]);
         var itemH = Math.abs(gb[1] - gb[3]);
         var r0 = doc.artboards[0].artboardRect;
         var abW = Math.abs(r0[2] - r0[0]);
         var abH = Math.abs(r0[1] - r0[3]);
-        // Upright 2-page Note spread has width roughly 2 * abH (e.g. 12.2in vs 6.1in * 2)
-        if (itemW > itemH && Math.abs(itemW - 2 * abH) <= 60) {
-            return true;
+        var abMin = Math.min(abW, abH);
+        var abMax = Math.max(abW, abH);
+        var itMin = Math.min(itemW, itemH);
+        var itMax = Math.max(itemW, itemH);
+
+        // Genuine 2-page spread spans ~2x shorter edge (never a ~1x single page)
+        var matchesDoubleLong = (itMax >= abMin * 1.60 && Math.abs(itMax - 2 * abMin) <= 95);
+        var matchesSingleOther = (Math.abs(itMin - abMax) <= 95);
+        if (matchesDoubleLong && matchesSingleOther) {
+            return { isSpread: true, isPortrait: (itemH > itemW) };
         }
-        var lower = doc.name.toLowerCase();
-        if (lower.indexOf("note") !== -1 || doc.name.indexOf("\u09A8\u09CB\u099F") !== -1) {
-            return true;
-        }
-        return false;
+        return { isSpread: false, isPortrait: false };
     }
 
-    function updatePlateSlugText(doc, jobNameBn) {
-        // Disabled: User manually places job name on plate slug.
-        // Completely disabled to protect artwork text frames (such as poems, titles containing "\u0986\u09B2\u09AC\u09BF\u09A6\u09BE" or "\u0986\u09B2", etc.).
-        return 0;
+    function isNoteSpreadCandidate(doc, sel) {
+        if (!doc || !sel || doc.artboards.length < 16) return false;
+        if (sel.length !== 8 && sel.length !== 1) return false;
+        return analyzeNoteSpreadItem(doc, sel[0]).isSpread;
     }
 
     function isBackToBackSheet(doc) {
@@ -624,17 +595,12 @@ $.global.FormaEngine = (function () {
     }
 
     function unlockLayerTree(layers) {
-        if (!layers) return;
-        for (var i = 0; i < layers.length; i++) {
-            var lyr = layers[i];
+        forEachLayer(layers, function (lyr) {
             try {
                 lyr.locked = false;
                 lyr.visible = true;
             } catch (e) {}
-            if (lyr.layers && lyr.layers.length > 0) {
-                unlockLayerTree(lyr.layers);
-            }
-        }
+        });
     }
 
     function isCompoundGuide(cpItem) {
@@ -651,6 +617,7 @@ $.global.FormaEngine = (function () {
 
     function removeDocumentGuides(doc) {
         var removed = 0;
+        unlockLayerTree(doc.layers);
         try { app.executeMenuCommand("unlockAllGuides"); } catch (e) {}
         try { app.executeMenuCommand("showAllGuides"); } catch (e) {}
 
@@ -689,17 +656,7 @@ $.global.FormaEngine = (function () {
             }
         }
 
-        function scanLayerTree(layers) {
-            if (!layers) return;
-            for (var l = 0; l < layers.length; l++) {
-                cleanContainer(layers[l]);
-                if (layers[l].layers && layers[l].layers.length > 0) {
-                    scanLayerTree(layers[l].layers);
-                }
-            }
-        }
-
-        scanLayerTree(doc.layers);
+        forEachLayer(doc.layers, cleanContainer);
 
         // Final sweep on doc.pathItems for any remaining guide paths
         if (doc.pathItems) {
@@ -858,8 +815,8 @@ $.global.FormaEngine = (function () {
         // Fallback: calculate horizontal midpoint from artwork items
         if (DIVIDER_X === null) {
             var allMinX = 999999, allMaxX = -999999;
-            for (var lIdx = 0; lIdx < doc.layers.length; lIdx++) {
-                var lyr = doc.layers[lIdx];
+            forEachLayer(doc.layers, function (lyr) {
+                if (!lyr.pageItems) return;
                 for (var itIdx = 0; itIdx < lyr.pageItems.length; itIdx++) {
                     var pIt = lyr.pageItems[itIdx];
                     if (pIt.guides) continue;
@@ -867,7 +824,7 @@ $.global.FormaEngine = (function () {
                     if (b[0] < allMinX) allMinX = b[0];
                     if (b[2] > allMaxX) allMaxX = b[2];
                 }
-            }
+            });
             if (allMinX < allMaxX) {
                 DIVIDER_X = (allMinX + allMaxX) / 2;
             } else {
@@ -889,8 +846,8 @@ $.global.FormaEngine = (function () {
         var foundL = (abLeftBounds !== null);
         var foundR = (abRightBounds !== null);
 
-        for (var iLay = 0; iLay < doc.layers.length; iLay++) {
-            var curLay = doc.layers[iLay];
+        forEachLayer(doc.layers, function (curLay) {
+            if (!curLay.pageItems) return;
             for (var j = 0; j < curLay.pageItems.length; j++) {
                 var it = curLay.pageItems[j];
                 if (it.guides) continue; // skip ruler guides
@@ -911,7 +868,7 @@ $.global.FormaEngine = (function () {
                     foundR = true;
                 }
             }
-        }
+        });
 
         // Strict boundary protection: sheets must NEVER overlap across DIVIDER_X
         if (maxX_L > DIVIDER_X) maxX_L = DIVIDER_X;
@@ -962,7 +919,7 @@ $.global.FormaEngine = (function () {
                 break;
             }
         }
- 
+        return false;
     }
 
     function isTemplateNumberCandidate(it) {
@@ -993,6 +950,20 @@ $.global.FormaEngine = (function () {
 
     function cleanGridNumbers(doc, userSelItems) {
         var removed = 0;
+        var slotCenters = [];
+        if (doc.artboards && doc.artboards.length >= 8) {
+            for (var a = 0; a < doc.artboards.length; a++) {
+                var abRect = doc.artboards[a].artboardRect;
+                slotCenters.push({
+                    cx: (abRect[0] + abRect[2]) / 2,
+                    cy: (abRect[1] + abRect[3]) / 2
+                });
+            }
+        } else {
+            for (var p = 1; p <= 16; p++) {
+                if (ALBUM_TARGETS[p]) slotCenters.push(ALBUM_TARGETS[p]);
+            }
+        }
 
         function checkAndRemove(it) {
             if (!it) return false;
@@ -1013,8 +984,8 @@ $.global.FormaEngine = (function () {
             var cx = (gb[0] + gb[2]) / 2;
             var cy = (gb[1] + gb[3]) / 2;
 
-            for (var p = 1; p <= 16; p++) {
-                var tgt = ALBUM_TARGETS[p];
+            for (var c = 0; c < slotCenters.length; c++) {
+                var tgt = slotCenters[c];
                 // Match slot center within 40 pt
                 if (Math.abs(cx - tgt.cx) < 40 && Math.abs(cy - tgt.cy) < 40) {
                     try {
@@ -1043,10 +1014,9 @@ $.global.FormaEngine = (function () {
             }
         }
 
-        for (var l = 0; l < doc.layers.length; l++) {
-            var lay = doc.layers[l];
+        forEachLayer(doc.layers, function (lay) {
             scanItems(lay);
-        }
+        });
         return removed;
     }
 
@@ -1065,10 +1035,7 @@ $.global.FormaEngine = (function () {
             var root = getRootItemOnLayer(items[i]);
             var already = false;
             for (var r = 0; r < roots.length; r++) {
-                if (roots[r] === root) { already = true; break; }
-                var b1 = roots[r].geometricBounds;
-                var b2 = root.geometricBounds;
-                if (b1[0] === b2[0] && b1[1] === b2[1] && b1[2] === b2[2] && b1[3] === b2[3]) {
+                if (roots[r] === root) {
                     already = true;
                     break;
                 }
@@ -1101,9 +1068,10 @@ $.global.FormaEngine = (function () {
 
                 var is8Page = (params.sectionType === "album_8");
                 var isNoteSpreadMode = false;
-                if (params.sectionType === "note_16" && doc.artboards.length >= 16 && (sel.length === 8 || sel.length === 1)) {
-                    isNoteSpreadMode = true;
-                } else if (params.sectionType === "inner_16" && (sel.length === 8 || sel.length === 1) && isNoteSpreadCandidate(doc, sel)) {
+                if ((params.sectionType === "note_16" || params.sectionType === "inner_16") &&
+                    doc.artboards.length >= 16 &&
+                    (sel.length === 8 || sel.length === 1) &&
+                    isNoteSpreadCandidate(doc, sel)) {
                     isNoteSpreadMode = true;
                 }
 
@@ -1119,6 +1087,7 @@ $.global.FormaEngine = (function () {
 
                 if (isNoteSpreadMode) {
                     var spreads = sortSelected16Pages(sel);
+                    var spreadInfo = analyzeNoteSpreadItem(doc, spreads[0]);
                     if (spreads.length === 1) {
                         var masterSpread = spreads[0];
                         for (var dupIdx = 0; dupIdx < 7; dupIdx++) {
@@ -1145,7 +1114,8 @@ $.global.FormaEngine = (function () {
                     ];
                     for (var sIdx = 0; sIdx < spreadSlots.length; sIdx++) {
                         var sp = spreadSlots[sIdx];
-                        placeDoubleSpreadOnPair(spreads[sIdx], grid16[sp.topIdx], grid16[sp.botIdx], sp.rot);
+                        var finalRot = spreadInfo.isPortrait ? (sp.rot === 270 ? 180 : 0) : sp.rot;
+                        placeDoubleSpreadOnPair(spreads[sIdx], grid16[sp.topIdx], grid16[sp.botIdx], finalRot);
                     }
                     app.redraw();
                     return toJson({
@@ -1425,7 +1395,11 @@ $.global.FormaEngine = (function () {
                 } else if (isJhuriNameOrText(doc)) {
                     detectedType = "album_16";
                 } else if (lower.indexOf("4 color") !== -1 || lower.indexOf("4color") !== -1 || lower.indexOf("album") !== -1) {
-                    detectedType = (abCount === 8) ? "album_8" : "album_16";
+                    if (isBackToBackSheet(doc)) {
+                        detectedType = (abCount <= 8) ? "album_8" : "inner_16";
+                    } else {
+                        detectedType = (abCount === 8) ? "album_8" : "album_16";
+                    }
                 } else if (isBackToBackSheet(doc) || lower.indexOf("inner") !== -1 || name.indexOf("\u0987\u09A8\u09BE\u09B0") !== -1 || lower.indexOf("forma") !== -1) {
                     detectedType = "inner_16";
                 } else if (isAlbumDoc(doc, "")) {
@@ -1437,7 +1411,8 @@ $.global.FormaEngine = (function () {
                     name: name,
                     jobName: jobName,
                     artboards: abCount,
-                    detectedType: detectedType
+                    detectedType: detectedType,
+                    isFourColor: isFourColorDoc(doc, detectedType)
                 });
             } catch (e) {
                 return toJson({ hasDoc: false, error: e.message });
@@ -1461,7 +1436,6 @@ $.global.FormaEngine = (function () {
                     params = { jobNameBn: paramsOrJobName };
                 }
 
-                var jobNameBn = params.jobNameBn || "";
                 var sectionType = params.sectionType || "";
                 var colorMode = params.colorMode || "auto"; // "auto", "4color", "2color"
 
@@ -1470,11 +1444,19 @@ $.global.FormaEngine = (function () {
                 try { app.executeMenuCommand("unlockAll"); } catch (e) {}
                 try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-                // 2. Remove all Illustrator guides & template guide numbers (1..16) before color/outline pass
+                // 2. Remove all Illustrator guides before appearance/color/outline passes
                 var removedGuides = removeDocumentGuides(doc);
-                report.push("\u0997\u09BE\u0987\u09A1 \u0993 \u0997\u09CD\u09B0\u09BF\u09A1 \u09A8\u09AE\u09CD\u09AC\u09B0: " + removedGuides + " \u099F\u09BF \u0985\u09AA\u09B8\u09BE\u09B0\u09BF\u09A4");
+                report.push("\u0997\u09BE\u0987\u09A1\u09B2\u09BE\u0987\u09A8: " + removedGuides + " \u099F\u09BF \u0985\u09AA\u09B8\u09BE\u09B0\u09BF\u09A4");
 
-                // 3. Color Mode Check: 4-Color (CMYK Full Color) vs 2-Color (Cyan & Black Only)
+                // 3. Expand live appearances safely before 2-color conversion & outlining
+                try {
+                    app.executeMenuCommand("selectall");
+                    app.executeMenuCommand("expandStyle");
+                    report.push("\u0985\u09CD\u09AF\u09BE\u09AA\u09BF\u09DF\u09BE\u09B0\u09C7\u09A8\u09CD\u09B8 \u098F\u0995\u09CD\u09B8\u09AA\u09CD\u09AF\u09BE\u09A8\u09CD\u09A1 \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8");
+                } catch (eExp) {}
+                try { doc.selection = null; } catch (eSel) {}
+
+                // 4. Color Mode Check: 4-Color (CMYK Full Color) vs 2-Color (Cyan & Black Only)
                 var is4Color = false;
                 if (colorMode === "4color") {
                     is4Color = true;
@@ -1487,43 +1469,57 @@ $.global.FormaEngine = (function () {
                 if (is4Color) {
                     report.push("\u09EA-\u0995\u09BE\u09B2\u09BE\u09B0 \u09B8\u09BF\u098F\u09AE\u0993\u09DF\u09BE\u0987\u0995\u09C7: \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u0995\u09BE\u09B2\u09BE\u09B0 \u0985\u0995\u09CD\u09B7\u09C1\u09A3\u09CD\u09A3 \u09B0\u09BE\u0996\u09BE \u09B9\u09DF\u09C7\u099B\u09C7");
                 } else {
-                    // Remove Magenta & Yellow (Clean for Cyan + Black 2-Color)
+                    function stripMagentaYellow(col) {
+                        if (!col) return false;
+                        var changed = false;
+                        if (col.typename === "CMYKColor") {
+                            if (col.magenta > 0 || col.yellow > 0) {
+                                col.magenta = 0;
+                                col.yellow = 0;
+                                return true;
+                            }
+                        } else if (col.typename === "GradientColor" && col.gradient && col.gradient.gradientStops) {
+                            var stops = col.gradient.gradientStops;
+                            for (var gs = 0; gs < stops.length; gs++) {
+                                if (stripMagentaYellow(stops[gs].color)) {
+                                    changed = true;
+                                }
+                            }
+                        } else if (col.typename === "SpotColor" && col.spot) {
+                            var isReg = false;
+                            try {
+                                isReg = (col.spot.name === "[Registration]" || (typeof ColorModel !== "undefined" && col.spot.colorType === ColorModel.REGISTRATION));
+                            } catch (eReg) {}
+                            if (!isReg && col.spot.color && stripMagentaYellow(col.spot.color)) {
+                                changed = true;
+                            }
+                        }
+                        return changed;
+                    }
+
+                    // Clean Swatches for Cyan + Black 2-Color
                     try {
                         for (var s = 0; s < doc.swatches.length; s++) {
                             var sw = doc.swatches[s];
-                            if (sw.color && sw.color.typename === "CMYKColor") {
-                                var swC = sw.color;
-                                if (swC.magenta > 0 || swC.yellow > 0) {
-                                    swC.magenta = 0;
-                                    swC.yellow = 0;
-                                    sw.color = swC;
-                                }
+                            if (sw.name === "[Registration]") continue;
+                            if (sw.color && stripMagentaYellow(sw.color)) {
+                                sw.color = sw.color;
                             }
                         }
-                    } catch(e) {}
+                    } catch (e) {}
 
                     var cleanedColors = 0;
                     function cleanItemColor(item) {
                         if (!item) return;
                         try {
                             if (item.typename === "PathItem") {
-                                if (item.filled && item.fillColor && item.fillColor.typename === "CMYKColor") {
-                                    var fc = item.fillColor;
-                                    if (fc.magenta > 0 || fc.yellow > 0) {
-                                        fc.magenta = 0;
-                                        fc.yellow = 0;
-                                        item.fillColor = fc;
-                                        cleanedColors++;
-                                    }
+                                if (item.filled && item.fillColor && stripMagentaYellow(item.fillColor)) {
+                                    item.fillColor = item.fillColor;
+                                    cleanedColors++;
                                 }
-                                if (item.stroked && item.strokeColor && item.strokeColor.typename === "CMYKColor") {
-                                    var sc = item.strokeColor;
-                                    if (sc.magenta > 0 || sc.yellow > 0) {
-                                        sc.magenta = 0;
-                                        sc.yellow = 0;
-                                        item.strokeColor = sc;
-                                        cleanedColors++;
-                                    }
+                                if (item.stroked && item.strokeColor && stripMagentaYellow(item.strokeColor)) {
+                                    item.strokeColor = item.strokeColor;
+                                    cleanedColors++;
                                 }
                             } else if (item.typename === "GroupItem") {
                                 for (var g = 0; g < item.pageItems.length; g++) {
@@ -1536,39 +1532,29 @@ $.global.FormaEngine = (function () {
                             } else if (item.typename === "TextFrame") {
                                 for (var trIdx = 0; trIdx < item.textRanges.length; trIdx++) {
                                     var tr = item.textRanges[trIdx];
-                                    if (tr.characterAttributes.fillColor && tr.characterAttributes.fillColor.typename === "CMYKColor") {
-                                        var tfc = tr.characterAttributes.fillColor;
-                                        if (tfc.magenta > 0 || tfc.yellow > 0) {
-                                            tfc.magenta = 0;
-                                            tfc.yellow = 0;
-                                            tr.characterAttributes.fillColor = tfc;
-                                            cleanedColors++;
-                                        }
+                                    if (tr.characterAttributes.fillColor && stripMagentaYellow(tr.characterAttributes.fillColor)) {
+                                        tr.characterAttributes.fillColor = tr.characterAttributes.fillColor;
+                                        cleanedColors++;
                                     }
-                                    if (tr.characterAttributes.strokeColor && tr.characterAttributes.strokeColor.typename === "CMYKColor") {
-                                        var tsc = tr.characterAttributes.strokeColor;
-                                        if (tsc.magenta > 0 || tsc.yellow > 0) {
-                                            tsc.magenta = 0;
-                                            tsc.yellow = 0;
-                                            tr.characterAttributes.strokeColor = tsc;
-                                            cleanedColors++;
-                                        }
+                                    if (tr.characterAttributes.strokeColor && stripMagentaYellow(tr.characterAttributes.strokeColor)) {
+                                        tr.characterAttributes.strokeColor = tr.characterAttributes.strokeColor;
+                                        cleanedColors++;
                                     }
                                 }
                             }
-                        } catch(e) {}
+                        } catch (e) {}
                     }
 
-                    for (var lyrIdx = 0; lyrIdx < doc.layers.length; lyrIdx++) {
-                        var curLyr = doc.layers[lyrIdx];
+                    forEachLayer(doc.layers, function (curLyr) {
+                        if (!curLyr.pageItems) return;
                         for (var pi = 0; pi < curLyr.pageItems.length; pi++) {
                             cleanItemColor(curLyr.pageItems[pi]);
                         }
-                    }
+                    });
                     report.push("\u09E8-\u0995\u09BE\u09B2\u09BE\u09B0: \u09AE\u09CD\u09AF\u09BE\u099C\u09C7\u09A8\u09CD\u099F\u09BE \u0993 \u0987\u09DF\u09C7\u09B2\u09CB \u0985\u09AA\u09B8\u09BE\u09B0\u09BF\u09A4 (" + cleanedColors + ")");
                 }
 
-                // 4. Embed all Linked Images (safely iterate backwards)
+                // 5. Embed all Linked Images (safely iterate backwards)
                 var embedCount = 0;
                 var embedMissing = 0;
                 for (var pl = doc.placedItems.length - 1; pl >= 0; pl--) {
@@ -1583,7 +1569,7 @@ $.global.FormaEngine = (function () {
                 if (embedMissing > 0) embedReport += " (" + embedMissing + " \u099F\u09BF \u09B2\u09BF\u0982\u0995 \u09AE\u09BF\u09B8\u09BF\u0982)";
                 report.push(embedReport);
 
-                // 5. Safe Text Outlining (Native DOM iteration - preserves all clipping masks & frames)
+                // 6. Safe Text Outlining (Native DOM iteration - preserves all clipping masks & frames)
                 var outlineCount = 0;
                 for (var remTf = doc.textFrames.length - 1; remTf >= 0; remTf--) {
                     try {
@@ -1718,7 +1704,7 @@ $.global.ReadyFileEngine = (function () {
         var reLabel = /(\u09AB\u09B0\u09CD\u09AE\u09BE|dg\u00A9v|\u09A8\u09CB\u099F\s*\u09AB\u09B0\u09CD\u09AE\u09BE|\u09EA\s*\u0995\u09BE\u09B2\u09BE\u09B0|4\s*Kvjvi)/;
         var reForma = /\u09AB\u09B0\u09CD\u09AE\u09BE/;
         var reBnTwoDigits = /[\u09E6-\u09EF]{2}/;
-        var reMadrasaSuffix = /^.+?\s*-\s*(\u099C\u09C1[\u09DC\u09A1\u09BC]+\u09BF\s*\u099B\u09BE\u09AA\u09BE|\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099F\u09C1\s*\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099B\u09BE\u09AA\u09BE)$/;
+        var reMadrasaSuffix = /^.+?\s*[-\u2013\u2014]\s*(\u099C\u09C1[\u09DC\u09A1\u09BC\u09F1]+\u09BF\s*\u099B\u09BE\u09AA\u09BE|\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099F\u09C1\s*\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099B\u09BE\u09AA\u09BE)$/;
 
         var frames = doc.textFrames;
         for (var i = 0; i < frames.length; i++) {
@@ -1804,7 +1790,7 @@ $.global.ReadyFileEngine = (function () {
         }
 
         var outFile = new File(params.outputPath);
-        if (tplFile.fsName === outFile.fsName) {
+        if (tplFile.fsName.toLowerCase() === outFile.fsName.toLowerCase()) {
             return toJson({ ok: false, error: "Safety stop: output path matches source template." });
         }
 

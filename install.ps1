@@ -1,5 +1,5 @@
 # ==============================================================================
-# ColorLab Forma Setup Pro - Automated Installer for Windows (PowerShell)
+# ColorLab Forma Setup Pro v1.3 - Automated Installer for Windows (PowerShell)
 # Developed by Yahia Bin Zaman | https://github.com/yahiabinzaman
 # ==============================================================================
 
@@ -7,7 +7,7 @@ $ErrorActionPreference = "Stop"
 
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " ColorLab Forma Setup Pro - Automated Windows Installer   " -ForegroundColor Green
+Write-Host " ColorLab Forma Setup Pro v1.3 - Windows Installer        " -ForegroundColor Green
 Write-Host " Developed by Yahia Bin Zaman                             " -ForegroundColor Yellow
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host ""
@@ -16,7 +16,7 @@ Write-Host ""
 $aiRunning = Get-Process -Name "Illustrator" -ErrorAction SilentlyContinue
 if ($aiRunning) {
     Write-Host "[WARNING] Adobe Illustrator is currently running!" -ForegroundColor Yellow
-    Write-Host "Please close Adobe Illustrator first so all extension files can update cleanly." -ForegroundColor Yellow
+    Write-Host "Please close Adobe Illustrator first so all extension files update cleanly." -ForegroundColor Yellow
     Write-Host ""
 }
 
@@ -49,7 +49,7 @@ if (Test-Path $targetDir) {
 }
 New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
 
-# 3. Check if running locally or from web
+# 3. Install from local repository folder or download latest ZIP from GitHub
 $scriptDir = $null
 if ($MyInvocation.MyCommand.Path) {
     $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -66,7 +66,11 @@ if ($scriptDir -and (Test-Path "$scriptDir\CSXS\manifest.xml")) {
     if (Test-Path $tempZip) { Remove-Item -Force $tempZip -ErrorAction SilentlyContinue }
     if (Test-Path $tempExtract) { Remove-Item -Recurse -Force $tempExtract -ErrorAction SilentlyContinue }
 
-    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    try {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 -bor [Net.SecurityProtocolType]::Tls13
+    } catch {
+        [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+    }
     $url = "https://github.com/yahiabinzaman/Forma-Setup/archive/refs/heads/main.zip"
     Invoke-WebRequest -Uri $url -OutFile $tempZip -UseBasicParsing
 
@@ -88,19 +92,36 @@ if ($scriptDir -and (Test-Path "$scriptDir\CSXS\manifest.xml")) {
 }
 
 # Verify deployed files
-if (!(Test-Path "$targetDir\CSXS\manifest.xml") -or !(Test-Path "$targetDir\jsx\hostscript.jsx") -or !(Test-Path "$targetDir\Ready_File_Generator_QuickRun.jsx")) {
-    Write-Host "[ERROR] Installation verification failed in: $targetDir" -ForegroundColor Red
-    return
+$requiredFiles = @(
+    "CSXS\manifest.xml",
+    "index.html",
+    "js\CSInterface.js",
+    "js\main.js",
+    "jsx\hostscript.jsx",
+    "Forma_Setup_Pro_QuickRun.jsx",
+    "Ready_File_Generator_QuickRun.jsx",
+    "Print_Demo_BackToBack.jsx"
+)
+foreach ($req in $requiredFiles) {
+    if (!(Test-Path "$targetDir\$req")) {
+        Write-Host "[ERROR] Installation verification failed. Missing: $targetDir\$req" -ForegroundColor Red
+        return
+    }
 }
 
-# 4. Copy standalone JSX scripts to Documents\Adobe Scripts and Illustrator Presets if writable
+# 4. Copy standalone JSX scripts to Documents\Adobe Scripts and Illustrator Presets (if writable)
 Write-Host "[4/4] Registering standalone menu scripts..." -ForegroundColor Gray
 $userScripts = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Adobe Scripts"
 if (!(Test-Path $userScripts)) {
     New-Item -ItemType Directory -Path $userScripts -Force -ErrorAction SilentlyContinue | Out-Null
 }
 $jsxNames = @("Forma_Setup_Pro_QuickRun.jsx", "Ready_File_Generator_QuickRun.jsx", "Print_Demo_BackToBack.jsx")
-$aiPaths = Get-ChildItem -Path "C:\Program Files\Adobe" -Filter "Adobe Illustrator*" -Directory -ErrorAction SilentlyContinue
+$aiRoots = @("C:\Program Files\Adobe", "C:\Program Files (x86)\Adobe")
+$aiPaths = foreach ($root in $aiRoots) {
+    if (Test-Path $root) {
+        Get-ChildItem -Path $root -Filter "Adobe Illustrator*" -Directory -ErrorAction SilentlyContinue
+    }
+}
 foreach ($jsxName in $jsxNames) {
     $jsxSource = "$targetDir\$jsxName"
     if (Test-Path $jsxSource) {
@@ -117,9 +138,10 @@ foreach ($jsxName in $jsxNames) {
 Write-Host ""
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host " [SUCCESS] ColorLab Forma Setup Pro v1.3 installed!" -ForegroundColor Green
-Write-Host " Installed to: $targetDir" -ForegroundColor Gray
+Write-Host " Extension: $targetDir" -ForegroundColor Gray
+Write-Host " Scripts:   $userScripts" -ForegroundColor Gray
 Write-Host " Restart Adobe Illustrator and open:" -ForegroundColor Yellow
 Write-Host " Window > Extensions > ColorLab Forma Setup Pro" -ForegroundColor White
-Write-Host " (Or File > Scripts > Forma_Setup_Pro_QuickRun / Ready_File_Generator_QuickRun)" -ForegroundColor White
+Write-Host " (Or File > Scripts > Other Script... from $userScripts)" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host ""

@@ -15,24 +15,35 @@
     }
 
     var doc = app.activeDocument;
-    var sel = doc.selection;
 
-    if (!sel || (sel.length !== 16 && sel.length !== 8 && sel.length !== 1)) {
-        alert("\u09A6\u09DF\u09BE \u0995\u09B0\u09C7 \u0996\u09C7\u09DF\u09BE\u09B2 \u0995\u09B0\u09C1\u09A8:\n\u09A0\u09BF\u0995 \u09E7\u09EC-\u099F\u09BF \u09AA\u09C7\u099C \u0985\u09A5\u09AC\u09BE \u09A8\u09CB\u099F \u09EE-\u099F\u09BF/\u09E7-\u099F\u09BF \u09B8\u09CD\u09AA\u09CD\u09B0\u09C7\u09A1 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u0986\u099B\u09C7: " + (sel ? sel.length : 0) + " \u099F\u09BF\u0964");
-        return;
+    function getRootItemOnLayer(item) {
+        var curr = item;
+        while (curr.parent && curr.parent.typename !== "Layer" && curr.parent.typename !== "Document") {
+            curr = curr.parent;
+        }
+        return curr;
     }
 
-    var requiredPages = (sel.length === 1) ? 16 : sel.length;
-
-    if (doc.artboards.length < requiredPages) {
-        alert("\u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F\u09C7 \u0995\u09AE\u09AA\u0995\u09CD\u09B7\u09C7 " + requiredPages + "-\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0986\u099B\u09C7: " + doc.artboards.length + " \u099F\u09BF\u0964");
-        return;
+    function getUniqueRootSelectedItems(items) {
+        if (!items) return [];
+        var roots = [];
+        for (var i = 0; i < items.length; i++) {
+            var root = getRootItemOnLayer(items[i]);
+            var already = false;
+            for (var r = 0; r < roots.length; r++) {
+                if (roots[r] === root) {
+                    already = true;
+                    break;
+                }
+            }
+            if (!already) roots.push(root);
+        }
+        return roots;
     }
 
     function getPageTrimCandidate(item, abW, abH) {
         if (!item) return null;
 
-        // 1. If the item itself is a clipped group, its clipping path is the definitive page boundary
         if (item.typename === "GroupItem" && item.clipped && item.pageItems) {
             for (var c = 0; c < item.pageItems.length; c++) {
                 if (item.pageItems[c].clipping) {
@@ -45,13 +56,11 @@
             var bestCandidate = null;
             var bestDiff = 999999;
 
-            // Helper to check how closely an element matches the page trim (allowing standard bleed up to 40 pt)
             function testBounds(gb, isAtBottom) {
                 var w = Math.abs(gb[2] - gb[0]);
                 var h = Math.abs(gb[1] - gb[3]);
                 if (!abW || !abH) return;
 
-                // Check Portrait orientation match
                 var diffW = Math.abs(w - abW);
                 var diffH = Math.abs(h - abH);
                 if (diffW <= 40 && diffH <= 40) {
@@ -64,7 +73,6 @@
                     return;
                 }
 
-                // Check Landscape orientation match
                 var diffW_rot = Math.abs(w - abH);
                 var diffH_rot = Math.abs(h - abW);
                 if (diffW_rot <= 40 && diffH_rot <= 40) {
@@ -77,7 +85,6 @@
                 }
             }
 
-            // 2. Scan from bottom of group upwards (where page backgrounds/frames reside)
             var count = item.pageItems.length;
             for (var i = count - 1; i >= 0; i--) {
                 var ch = item.pageItems[i];
@@ -97,9 +104,7 @@
                 }
             }
 
-            if (bestCandidate !== null) {
-                return bestCandidate;
-            }
+            if (bestCandidate !== null) return bestCandidate;
         }
 
         return null;
@@ -150,13 +155,41 @@
         return getPageTrimBounds(item);
     }
 
-    function getSpatiallySortedArtboards(doc, requiredCount) {
+    function analyzeNoteSpreadItem(d, item) {
+        if (!d || !item || d.artboards.length < 1) {
+            return { isSpread: false, isPortrait: false };
+        }
+        var gb = getItemBounds(item);
+        if (!gb) return { isSpread: false, isPortrait: false };
+        var itemW = Math.abs(gb[2] - gb[0]);
+        var itemH = Math.abs(gb[1] - gb[3]);
+        var r0 = d.artboards[0].artboardRect;
+        var abW = Math.abs(r0[2] - r0[0]);
+        var abH = Math.abs(r0[1] - r0[3]);
+        var abMin = Math.min(abW, abH);
+        var abMax = Math.max(abW, abH);
+        var itMin = Math.min(itemW, itemH);
+        var itMax = Math.max(itemW, itemH);
+
+        if (itMax >= abMin * 1.60 && Math.abs(itMax - 2 * abMin) <= 95 && Math.abs(itMin - abMax) <= 95) {
+            return { isSpread: true, isPortrait: (itemH > itemW) };
+        }
+        return { isSpread: false, isPortrait: false };
+    }
+
+    function isNoteSpreadCandidate(d, items) {
+        if (!d || !items || d.artboards.length < 16) return false;
+        if (items.length !== 8 && items.length !== 1) return false;
+        return analyzeNoteSpreadItem(d, items[0]).isSpread;
+    }
+
+    function getSpatiallySortedArtboards(d, requiredCount) {
         var abs = [];
-        for (var i = 0; i < doc.artboards.length; i++) {
-            var r = doc.artboards[i].artboardRect;
+        for (var i = 0; i < d.artboards.length; i++) {
+            var r = d.artboards[i].artboardRect;
             abs.push({
                 index: i,
-                artboard: doc.artboards[i],
+                artboard: d.artboards[i],
                 cx: (r[0] + r[2]) / 2,
                 cy: (r[1] + r[3]) / 2
             });
@@ -184,7 +217,6 @@
                 }
             }
             return grid16;
-
         } else if (requiredCount === 8 && abs.length >= 8) {
             var top4 = abs.slice(0, 4);
             var bot4 = abs.slice(4, 8);
@@ -198,7 +230,7 @@
         }
 
         var fallback = [];
-        for (var f = 0; f < doc.artboards.length; f++) fallback.push(doc.artboards[f]);
+        for (var f = 0; f < d.artboards.length; f++) fallback.push(d.artboards[f]);
         return fallback;
     }
 
@@ -223,7 +255,6 @@
             for (var r1 = 0; r1 < 8; r1++) sorted16.push(row1[r1].item);
             for (var r2 = 0; r2 < 8; r2++) sorted16.push(row2[r2].item);
             return sorted16;
-
         } else if (items.length === 8) {
             var rTop = list.slice(0, 4);
             var rBot = list.slice(4, 8);
@@ -251,11 +282,6 @@
         1: 1, 2: 2, 3: 6, 4: 5, 5: 4, 6: 7, 7: 3, 8: 0
     };
 
-    // User exact column rotation:
-    // 8-9-12-5  -> Dan (Right = 270 deg)
-    // 1-16-13-4 -> Bam (Left = 90 deg)
-    // 2-15-14-3 -> Dan (Right = 270 deg)
-    // 7-10-11-6 -> Bam (Left = 90 deg)
     var PAGE_ROTATION_16 = {
         8: 270, 9: 270, 12: 270, 5: 270,
         1: 90,  16: 90, 13: 90,  4: 90,
@@ -270,15 +296,15 @@
         7: 90,  6: 90
     };
 
-    function getArtboardForPage(doc, pageNum, requiredPages) {
-        var spatial = getSpatiallySortedArtboards(doc, requiredPages);
+    function getArtboardForPage(d, pageNum, requiredPages) {
+        var spatial = getSpatiallySortedArtboards(d, requiredPages);
         if (spatial && spatial.length >= requiredPages) {
             var slot = (requiredPages === 8) ? PAGE_TO_SLOT_8[pageNum] : PAGE_TO_SLOT_16[pageNum];
             if (slot !== undefined && spatial[slot]) {
                 return spatial[slot];
             }
         }
-        return (pageNum - 1 < doc.artboards.length) ? doc.artboards[pageNum - 1] : null;
+        return (pageNum - 1 < d.artboards.length) ? d.artboards[pageNum - 1] : null;
     }
 
     function getPageRotation(pageNum, requiredPages) {
@@ -286,48 +312,6 @@
             return (PAGE_ROTATION_8[pageNum] !== undefined) ? PAGE_ROTATION_8[pageNum] : 90;
         }
         return (PAGE_ROTATION_16[pageNum] !== undefined) ? PAGE_ROTATION_16[pageNum] : 90;
-    }
-
-    function repairRotatedClippingMasks(item) {
-        if (!item || item.typename !== "GroupItem") return;
-        try {
-            if (item.clipped) {
-                if (item.pageItems && item.pageItems.length === 2 && item.pageItems[1].typename === "GroupItem" && item.pageItems[1].pageItems.length === 1) {
-                    var nested = item.pageItems[1];
-                    var inner = nested.pageItems[0];
-                    inner.move(item, ElementPlacement.PLACEATEND);
-                    nested.remove();
-                }
-                item.clipped = false;
-                item.clipped = true;
-            }
-            if (item.pageItems) {
-                for (var i = 0; i < item.pageItems.length; i++) {
-                    var ch = item.pageItems[i];
-                    if (ch.typename === "GroupItem") {
-                        repairRotatedClippingMasks(ch);
-                    }
-                }
-            }
-        } catch (e) {}
-    }
-
-    function releaseBrokenFrameOpacityMasks(doc, item) {
-        if (!item) return;
-        try {
-            var name = (item.name || "").toLowerCase();
-            if (name.indexOf("frame") !== -1 || name.indexOf("ribon") !== -1 || name.indexOf(".psd") !== -1) {
-                try {
-                    doc.selection = [item];
-                    app.executeMenuCommand("releaseMask");
-                } catch (eRel) {}
-            }
-            if (item.typename === "GroupItem" && item.pageItems) {
-                for (var i = 0; i < item.pageItems.length; i++) {
-                    releaseBrokenFrameOpacityMasks(doc, item.pageItems[i]);
-                }
-            }
-        } catch (e) {}
     }
 
     function placeOnArtboard(item, artboard, rotAngle) {
@@ -377,35 +361,73 @@
         item.translate(targetCX - curTrimCX, targetCY - curTrimCY);
     }
 
-    function isNoteSpreadCandidate(d, items) {
-        if (!d || !items || d.artboards.length < 16) return false;
-        if (items.length !== 8 && items.length !== 1) return false;
-        var gb = getItemBounds(items[0]);
-        var itemW = Math.abs(gb[2] - gb[0]);
-        var itemH = Math.abs(gb[1] - gb[3]);
-        var r0 = d.artboards[0].artboardRect;
-        var abH = Math.abs(r0[1] - r0[3]);
-        if (itemW > itemH && Math.abs(itemW - 2 * abH) <= 60) return true;
-        var n = d.name.toLowerCase();
-        return (n.indexOf("note") !== -1 || d.name.indexOf("\u09A8\u09CB\u099F") !== -1);
-    }
-
-    var sortedPages = sortSelected16Pages(sel);
-
     function isAlbum(d) {
         var n = d.name.toLowerCase();
-        if (n.indexOf("jhuri") !== -1 || n.indexOf("front & back") !== -1 || n.indexOf("font & back") !== -1 ||
-            d.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || d.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) return true;
-        if (n.indexOf("back to back") !== -1 || n.indexOf("back-to-back") !== -1) return false;
+        var isJhuri = (
+            n.indexOf("jhuri") !== -1 ||
+            n.indexOf("front & back") !== -1 ||
+            n.indexOf("font & back") !== -1 ||
+            d.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
+            d.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1
+        );
+        var isB2B = (n.indexOf("back to back") !== -1 || n.indexOf("back-to-back") !== -1);
+
+        if (!isJhuri && !isB2B && d.textFrames) {
+            try {
+                for (var t = 0; t < d.textFrames.length; t++) {
+                    var tc = d.textFrames[t].contents;
+                    if (tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
+                        tc.indexOf("\u099C\u09C1\u09A1\u09BC\u09BF") !== -1 ||
+                        tc.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1 ||
+                        tc.indexOf("\u09AB\u09CD\u09B0\u09A8\u09CD\u099F \u09B8\u09BE\u0987\u09A1") !== -1 ||
+                        tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u09B8\u09BE\u0987\u09A1") !== -1 ||
+                        tc.indexOf("d\u00AB\u203AU mvBW") !== -1 ||
+                        tc.indexOf("e\u00A8vK mvBW") !== -1) {
+                        isJhuri = true;
+                        break;
+                    }
+                    if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 ||
+                        tc.toLowerCase().indexOf("back to back") !== -1) {
+                        isB2B = true;
+                        break;
+                    }
+                }
+            } catch (eTxt) {}
+        }
+
+        if (isJhuri) return true;
+        if (isB2B) return false;
+        if (n.indexOf("note") !== -1 || n.indexOf("inner") !== -1) return false;
         if (n.indexOf("album") !== -1) return true;
+
         if (d.artboards.length === 16) {
             var r = d.artboards[0].artboardRect;
-            return (Math.abs(r[1] - r[3]) > Math.abs(r[2] - r[0]));
+            var w = Math.abs(r[2] - r[0]);
+            var h = Math.abs(r[1] - r[3]);
+            if (h > w) {
+                var xs = [];
+                for (var xi = 0; xi < d.artboards.length; xi++) {
+                    var xr = d.artboards[xi].artboardRect;
+                    xs.push((xr[0] + xr[2]) / 2);
+                }
+                xs.sort(function (a, b) { return a - b; });
+                return (xs[8] - xs[7]) > w * 0.15;
+            }
         }
         return false;
     }
 
+    var sel = getUniqueRootSelectedItems(doc.selection);
+
+    if (!sel || (sel.length !== 16 && sel.length !== 8 && sel.length !== 1)) {
+        alert("\u09A6\u09DF\u09BE \u0995\u09B0\u09C7 \u0996\u09C7\u09DF\u09BE\u09B2 \u0995\u09B0\u09C1\u09A8:\n\u09A0\u09BF\u0995 \u09E7\u09EC-\u099F\u09BF \u09AA\u09C7\u099C, \u09EE-\u099F\u09BF \u09AA\u09C7\u099C \u0985\u09A5\u09AC\u09BE \u09A8\u09CB\u099F \u09EE-\u099F\u09BF/\u09E7-\u099F\u09BF \u09B8\u09CD\u09AA\u09CD\u09B0\u09C7\u09A1 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u0986\u099B\u09C7: " + (sel ? sel.length : 0) + " \u099F\u09BF\u0964");
+        return;
+    }
+
+    var sortedPages = sortSelected16Pages(sel);
+
     if (isNoteSpreadCandidate(doc, sel)) {
+        var spreadInfo = analyzeNoteSpreadItem(doc, sortedPages[0]);
         if (sortedPages.length === 1) {
             var masterSpread = sortedPages[0];
             for (var dupIdx = 0; dupIdx < 7; dupIdx++) {
@@ -425,10 +447,22 @@
         ];
         for (var sIdx = 0; sIdx < spreadSlots.length; sIdx++) {
             var sp = spreadSlots[sIdx];
-            placeDoubleSpreadOnPair(sortedPages[sIdx], grid16[sp.topIdx], grid16[sp.botIdx], sp.rot);
+            var finalRot = spreadInfo.isPortrait ? (sp.rot === 270 ? 180 : 0) : sp.rot;
+            placeDoubleSpreadOnPair(sortedPages[sIdx], grid16[sp.topIdx], grid16[sp.botIdx], finalRot);
         }
         app.redraw();
         alert("\u0986\u09B2\u09B9\u09BE\u09AE\u09A6\u09C1\u09B2\u09BF\u09B2\u09CD\u09B2\u09BE\u09B9!\n\u09A8\u09CB\u099F \u09EE-\u099F\u09BF \u09A1\u09BE\u09AC\u09B2-\u09AA\u09C7\u099C \u09B8\u09CD\u09AA\u09CD\u09B0\u09C7\u09A1 \u09A8\u09BF\u0996\u09C1\u0981\u09A4\u09AD\u09BE\u09AC\u09C7 \u09E7\u09EC-\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7 \u09B8\u09BE\u099C\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7!");
+        return;
+    }
+
+    if (sel.length === 1) {
+        alert("\u09A0\u09BF\u0995 \u09E7\u09EC-\u099F\u09BF \u09AA\u09C7\u099C \u0985\u09A5\u09AC\u09BE \u09A8\u09CB\u099F \u09A1\u09BE\u09AC\u09B2-\u09AA\u09C7\u099C \u09B8\u09CD\u09AA\u09CD\u09B0\u09C7\u09A1 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09C1\u09A8!");
+        return;
+    }
+
+    var requiredPages = sel.length;
+    if (doc.artboards.length < requiredPages) {
+        alert("\u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F\u09C7 \u0995\u09AE\u09AA\u0995\u09CD\u09B7\u09C7 " + requiredPages + "-\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0986\u099B\u09C7: " + doc.artboards.length + " \u099F\u09BF\u0964");
         return;
     }
 
@@ -491,5 +525,5 @@
     }
 
     app.redraw();
-    alert("\u0986\u09B2\u09B9\u09BE\u09AE\u09A6\u09C1\u09B2\u09BF\u09B2\u09CD\u09B2\u09BE\u09B9!\n\u09E7\u09EC-\u099F\u09BF \u09AA\u09C7\u099C \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09B8\u09C1\u09A8\u09BF\u09B0\u09CD\u09A6\u09BF\u09B7\u09CD\u099F \u0995\u09B2\u09BE\u09AE \u09B0\u09CB\u099F\u09C7\u09B6\u09A8 \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u09AA\u09CD\u09B2\u09C7\u099F\u09C7 \u09A8\u09BF\u0996\u09C1\u0981\u09A4\u09AD\u09BE\u09AC\u09C7 \u09B8\u09BE\u099C\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7!");
+    alert("\u0986\u09B2\u09B9\u09BE\u09AE\u09A6\u09C1\u09B2\u09BF\u09B2\u09CD\u09B2\u09BE\u09B9!\n" + requiredPages + "-\u099F\u09BF \u09AA\u09C7\u099C \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09B8\u09C1\u09A8\u09BF\u09B0\u09CD\u09A6\u09BF\u09B7\u09CD\u099F \u0995\u09B2\u09BE\u09AE \u09B0\u09CB\u099F\u09C7\u09B6\u09A8 \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u09AA\u09CD\u09B2\u09C7\u099F\u09C7 \u09A8\u09BF\u0996\u09C1\u0981\u09A4\u09AD\u09BE\u09AC\u09C7 \u09B8\u09BE\u099C\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7!");
 })();

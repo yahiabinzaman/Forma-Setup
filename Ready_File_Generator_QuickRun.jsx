@@ -10,7 +10,31 @@
 (function () {
     "use strict";
 
-    var DEFAULT_SETUP_PATH = new Folder("~").fsName + "/Downloads/Setup Folder";
+    var IS_WIN = (typeof $ !== "undefined" && $.os && $.os.indexOf("Windows") !== -1);
+    var SEP = IS_WIN ? "\\" : "/";
+
+    function joinPath(base, sub) {
+        var b = String(base || "").replace(/[\/\\]+$/, "");
+        var s = String(sub || "").replace(/^[\/\\]+/, "");
+        return b ? (b + SEP + s) : s;
+    }
+
+    function detectDefaultSetupPath() {
+        var home = new Folder("~").fsName;
+        var candidates = [
+            joinPath(joinPath(home, "Downloads"), "Setup Folder"),
+            joinPath(joinPath(joinPath(home, "OneDrive"), "Downloads"), "Setup Folder"),
+            joinPath(joinPath(home, "Desktop"), "Setup Folder"),
+            joinPath(joinPath(joinPath(home, "OneDrive"), "Desktop"), "Setup Folder")
+        ];
+        for (var i = 0; i < candidates.length; i++) {
+            var f = new Folder(candidates[i]);
+            if (f.exists) return f.fsName;
+        }
+        return candidates[0];
+    }
+
+    var DEFAULT_SETUP_PATH = detectDefaultSetupPath();
     var BN_DIGITS = ["\u09E6", "\u09E7", "\u09E8", "\u09E9", "\u09EA", "\u09EB", "\u09EC", "\u09ED", "\u09EE", "\u09EF"];
 
     function trimStr(s) {
@@ -80,7 +104,7 @@
         var idxAt = decoded.indexOf("@");
         var prefix = idxAt >= 0 ? decoded.slice(0, idxAt + 1) : decoded.replace(/\.ai$/i, " @");
         if (isInner) {
-            prefix = prefix.replace(/\b(Forma\s+)\d{2}\b/i, "$1" + toEnTwoDigit(formaNum));
+            prefix = prefix.replace(/\b(Forma\s+)\d{1,2}\b/i, "$1" + toEnTwoDigit(formaNum));
         }
         return prefix + englishName + ".ai";
     }
@@ -117,7 +141,7 @@
         var reLabel = /(\u09AB\u09B0\u09CD\u09AE\u09BE|dg\u00A9v|\u09A8\u09CB\u099F\s*\u09AB\u09B0\u09CD\u09AE\u09BE|\u09EA\s*\u0995\u09BE\u09B2\u09BE\u09B0|4\s*Kvjvi)/;
         var reForma = /\u09AB\u09B0\u09CD\u09AE\u09BE/;
         var reBnTwoDigits = /[\u09E6-\u09EF]{2}/;
-        var reMadrasaSuffix = /^.+?\s*-\s*(\u099C\u09C1[\u09DC\u09A1\u09BC]+\u09BF\s*\u099B\u09BE\u09AA\u09BE|\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099F\u09C1\s*\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099B\u09BE\u09AA\u09BE)$/;
+        var reMadrasaSuffix = /^.+?\s*[-\u2013\u2014]\s*(\u099C\u09C1[\u09DC\u09A1\u09BC\u09F1]+\u09BF\s*\u099B\u09BE\u09AA\u09BE|\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099F\u09C1\s*\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099B\u09BE\u09AA\u09BE)$/;
 
         var frames = doc.textFrames;
         for (var i = 0; i < frames.length; i++) {
@@ -243,8 +267,14 @@
         if (!sizeFolder) return;
 
         var files = sizeFolder.getFiles(isAiFile);
+        var orderMap = { color4: 1, inner: 2, note: 3, other: 4 };
         files.sort(function (a, b) {
-            return File.decode(a.name) < File.decode(b.name) ? -1 : 1;
+            var na = File.decode(a.name);
+            var nb = File.decode(b.name);
+            var oa = orderMap[classifyTemplate(na)];
+            var ob = orderMap[classifyTemplate(nb)];
+            if (oa !== ob) return oa - ob;
+            return na < nb ? -1 : (na > nb ? 1 : 0);
         });
 
         var first4Color = true;
@@ -270,7 +300,8 @@
 
     function populateSizes() {
         ddSize.removeAll();
-        currentSizes = scanSizes(trimStr(etSetup.text));
+        var setupStr = trimStr(etSetup.text);
+        currentSizes = scanSizes(setupStr);
         var defaultIdx = 0;
         for (var i = 0; i < currentSizes.length; i++) {
             var name = File.decode(currentSizes[i].name);
@@ -319,7 +350,7 @@
         if (isNaN(innerCount) || innerCount < 1) innerCount = 1;
         if (isNaN(innerStart) || innerStart < 1) innerStart = 1;
 
-        var destFolder = chkSubfolder.value ? new Folder(outPath + "/@" + engSafe) : new Folder(outPath);
+        var destFolder = chkSubfolder.value ? new Folder(joinPath(outPath, "@" + engSafe)) : new Folder(outPath);
         if (!destFolder.exists) destFolder.create();
 
         var jobs = [];
@@ -360,8 +391,8 @@
             app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
             for (var j = 0; j < jobs.length; j++) {
                 var job = jobs[j];
-                var outFile = new File(destFolder.fsName + "/" + job.outName);
-                if (job.tpl.fsName === outFile.fsName) continue;
+                var outFile = new File(joinPath(destFolder.fsName, job.outName));
+                if (job.tpl.fsName.toLowerCase() === outFile.fsName.toLowerCase()) continue;
                 if (!chkOverwrite.value && outFile.exists) {
                     skipped++;
                     continue;
