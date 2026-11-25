@@ -610,3 +610,373 @@ select:focus, input[type="text"]:focus {
   color: var(--text-primary);
   font-weight: 500;
 }
+
+/* ============================================================================
+   Navigation Tabs & Ready File Generator Tab
+   ============================================================================ */
+.mode-tabs {
+  display: flex;
+  gap: 3px;
+  padding: 6px 12px 0;
+  background: var(--bg-header);
+  border-bottom: 1px solid var(--border-subtle);
+  flex-shrink: 0;
+}
+
+.mode-tab-btn {
+  flex: 1;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--text-secondary);
+  padding: 6px 8px 7px;
+  font-size: 11px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.14s ease;
+  text-align: center;
+}
+
+.mode-tab-btn:hover {
+  color: var(--text-primary);
+}
+
+.mode-tab-btn.active {
+  color: #ffffff;
+  font-weight: 600;
+  border-bottom-color: var(--apple-blue);
+}
+
+.tab-pane {
+  display: none;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tab-pane.active {
+  display: flex;
+}
+
+.rf-path-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rf-path-display {
+  flex: 1;
+  background: var(--bg-input);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-sm);
+  padding: 5px 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+  user-select: text;
+}
+
+.rf-btn-compact {
+  padding: 5px 9px;
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.rf-btn-xs {
+  padding: 2px 7px;
+  font-size: 9.5px;
+  border-radius: var(--radius-xs);
+}
+
+.rf-title-actions {
+  display: flex;
+  gap: 4px;
+}
+
+.rf-size-btn-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 5px;
+}
+
+.rf-size-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 5px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-control);
+  background: var(--bg-input);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.12s ease;
+  gap: 1px;
+}
+
+.rf-size-btn:hover {
+  border-color: rgba(255, 255, 255, 0.25);
+  color: var(--text-primary);
+}
+
+.rf-size-btn.active {
+  background: var(--apple-blue);
+  border-color: var(--apple-blue);
+  color: #ffffff;
+}
+
+.rf-size-btn .size-title {
+  font-size: 10.5px;
+  font-weight: 600;
+}
+
+.rf-size-btn .size-desc {
+  font-size: 9px;
+  opacity: 0.75;
+}
+
+.rf-label-split {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.rf-label-hint {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+.rf-warn-text {
+  font-size: 9.5px;
+  color: var(--apple-orange);
+}
+
+#tabReadyFiles input[type="text"],
+#tabReadyFiles input[type="number"] {
+  user-select: text;
+}
+
+.rf-template-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.rf-tpl-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+}
+
+.rf-tpl-item.selected {
+  border-color: rgba(10, 132, 255, 0.4);
+}
+
+.rf-tpl-left {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 1;
+  cursor: pointer;
+}
+
+.rf-tpl-left input[type="checkbox"] {
+  accent-color: var(--apple-blue);
+  width: 13px;
+  height: 13px;
+  flex-shrink: 0;
+  cursor: pointer;
+}
+
+.rf-tpl-info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.rf-tpl-name {
+  font-size: 10.5px;
+  font-weight: 500;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.rf-tpl-sub {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+.rf-stepper {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  flex-shrink: 0;
+}
+
+.rf-step-btn {
+  width: 22px;
+  height: 22px;
+  border-radius: 4px;
+  border: 1px solid var(--border-control);
+  background: var(--bg-cell);
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rf-step-btn:hover {
+  background: #3a3a3c;
+}
+
+.rf-step-input {
+  width: 36px;
+  text-align: center;
+  padding: 3px 2px;
+  font-size: 10.5px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-control);
+  border-radius: var(--radius-xs);
+  color: var(--text-primary);
+}
+
+.rf-mini-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  padding-top: 2px;
+}
+
+.rf-options-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 5px 10px;
+}
+
+.rf-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  cursor: pointer;
+}
+
+.rf-checkbox-row input[type="checkbox"] {
+  accent-color: var(--apple-blue);
+  cursor: pointer;
+}
+
+.rf-preview-list {
+  max-height: 145px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  background: var(--bg-input);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  padding: 6px 8px;
+}
+
+.rf-preview-row {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+.rf-preview-row:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.rf-preview-file {
+  font-size: 10px;
+  font-weight: 500;
+  color: #82c4ff;
+  word-break: break-all;
+}
+
+.rf-preview-text {
+  font-size: 9px;
+  color: var(--text-tertiary);
+}
+
+.rf-preview-empty {
+  font-size: 10px;
+  color: var(--text-tertiary);
+  text-align: center;
+  padding: 8px 4px;
+}
+
+.rf-progress-wrap {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.rf-progress-wrap.visible {
+  display: flex;
+}
+
+.rf-progress-track {
+  width: 100%;
+  height: 6px;
+  background: var(--bg-track);
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.rf-progress-fill {
+  height: 100%;
+  width: 0%;
+  background: var(--apple-blue);
+  transition: width 0.2s ease;
+}
+
+.rf-progress-label {
+  font-size: 9.5px;
+  color: var(--text-secondary);
+  display: flex;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.rf-actions-bar {
+  display: flex;
+  gap: 6px;
+}
+
+.rf-actions-bar .btn-primary {
+  flex: 1;
+}
+
+.rf-open-folder-btn {
+  display: none;
+  white-space: nowrap;
+  padding: 8px 10px;
+}
+
+.rf-open-folder-btn.visible {
+  display: flex;
+}

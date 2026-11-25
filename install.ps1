@@ -60,15 +60,18 @@ if ($scriptDir -and (Test-Path "$scriptDir\CSXS\manifest.xml")) {
     Remove-Item -Recurse -Force $tempExtract -ErrorAction SilentlyContinue
 }
 
-# 4. Copy standalone JSX script to Illustrator Presets if available
+# 4. Copy standalone JSX scripts to Illustrator Presets if available
 Write-Host "[4/4] Registering standalone menu scripts..." -ForegroundColor Gray
-$jsxSource = "$targetDir\Forma_Setup_Pro_QuickRun.jsx"
-if (Test-Path $jsxSource) {
-    $aiPaths = Get-ChildItem -Path "C:\Program Files\Adobe" -Filter "Adobe Illustrator*" -Directory -ErrorAction SilentlyContinue
-    foreach ($ai in $aiPaths) {
-        $presetScripts = Get-ChildItem -Path "$($ai.FullName)\Presets" -Recurse -Filter "Scripts" -Directory -ErrorAction SilentlyContinue
-        foreach ($sDir in $presetScripts) {
-            Copy-Item -Path $jsxSource -Destination $sDir.FullName -Force -ErrorAction SilentlyContinue
+$jsxNames = @("Forma_Setup_Pro_QuickRun.jsx", "Ready_File_Generator_QuickRun.jsx")
+$aiPaths = Get-ChildItem -Path "C:\Program Files\Adobe" -Filter "Adobe Illustrator*" -Directory -ErrorAction SilentlyContinue
+foreach ($jsxName in $jsxNames) {
+    $jsxSource = "$targetDir\$jsxName"
+    if (Test-Path $jsxSource) {
+        foreach ($ai in $aiPaths) {
+            $presetScripts = Get-ChildItem -Path "$($ai.FullName)\Presets" -Recurse -Filter "Scripts" -Directory -ErrorAction SilentlyContinue
+            foreach ($sDir in $presetScripts) {
+                Copy-Item -Path $jsxSource -Destination $sDir.FullName -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 }

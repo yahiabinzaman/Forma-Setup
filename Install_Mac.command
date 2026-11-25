@@ -28,18 +28,20 @@ shopt -s dotglob 2>/dev/null || true
 cp -R "$DIR/"* "$TARGET_DIR/" 2>/dev/null || true
 shopt -u dotglob 2>/dev/null || true
 
-# Copy standalone JSX script to Illustrator Presets if accessible
-if [ -f "$DIR/Forma_Setup_Pro_QuickRun.jsx" ]; then
-    for app_dir in /Applications/Adobe\ Illustrator*; do
-        if [ -d "$app_dir" ]; then
-            for script_dir in "$app_dir"/Presets.localized/*/Scripts "$app_dir"/Presets/*/Scripts; do
-                if [ -d "$script_dir" ]; then
-                    cp -f "$DIR/Forma_Setup_Pro_QuickRun.jsx" "$script_dir/" 2>/dev/null || true
-                fi
-            done
-        fi
-    done
-fi
+# Copy standalone JSX scripts to Illustrator Presets if accessible
+for jsx_name in "Forma_Setup_Pro_QuickRun.jsx" "Ready_File_Generator_QuickRun.jsx"; do
+    if [ -f "$DIR/$jsx_name" ]; then
+        for app_dir in /Applications/Adobe\ Illustrator*; do
+            if [ -d "$app_dir" ]; then
+                for script_dir in "$app_dir"/Presets.localized/*/Scripts "$app_dir"/Presets/*/Scripts; do
+                    if [ -d "$script_dir" ]; then
+                        cp -f "$DIR/$jsx_name" "$script_dir/" 2>/dev/null || true
+                    fi
+                done
+            fi
+        done
+    fi
+done
 
 echo "=========================================================="
 echo " [SUCCESS] ColorLab Forma Setup Pro installed successfully!"

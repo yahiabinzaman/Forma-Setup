@@ -1330,3 +1330,277 @@ $.global.FormaEngine = (function () {
     };
 })();
 var FormaEngine = $.global.FormaEngine;
+
+$.global.ReadyFileEngine = (function () {
+    "use strict";
+
+    var BN_DIGITS = [
+        "\u09E6", "\u09E7", "\u09E8", "\u09E9", "\u09EA",
+        "\u09EB", "\u09EC", "\u09ED", "\u09EE", "\u09EF"
+    ];
+
+    function toJson(obj) {
+        if (obj === null) return "null";
+        if (typeof obj === "undefined") return "undefined";
+        if (typeof obj === "number" || typeof obj === "boolean") return String(obj);
+        if (typeof obj === "string") {
+            var s = obj.replace(/\\/g, "\\\\")
+                       .replace(/"/g, '\\"')
+                       .replace(/\n/g, "\\n")
+                       .replace(/\r/g, "\\r")
+                       .replace(/\t/g, "\\t");
+            var out = '"';
+            for (var c = 0; c < s.length; c++) {
+                var code = s.charCodeAt(c);
+                if (code > 127) {
+                    var hex = code.toString(16);
+                    while (hex.length < 4) hex = "0" + hex;
+                    out += "\\u" + hex;
+                } else {
+                    out += s.charAt(c);
+                }
+            }
+            return out + '"';
+        }
+        if (obj instanceof Array) {
+            var arrRes = [];
+            for (var a = 0; a < obj.length; a++) {
+                arrRes.push(toJson(obj[a]));
+            }
+            return "[" + arrRes.join(",") + "]";
+        }
+        if (typeof obj === "object") {
+            var objRes = [];
+            for (var key in obj) {
+                if (obj.hasOwnProperty(key)) {
+                    objRes.push(toJson(key) + ":" + toJson(obj[key]));
+                }
+            }
+            return "{" + objRes.join(",") + "}";
+        }
+        return '""';
+    }
+
+    function parseJson(str) {
+        if (!str || typeof str !== "string") return null;
+        return eval("(" + str + ")");
+    }
+
+    function trimStr(s) {
+        return String(s || "").replace(/^[\s\r\n\uFEFF\xA0]+|[\s\r\n\uFEFF\xA0]+$/g, "");
+    }
+
+    function toBanglaTwoDigit(n) {
+        var num = parseInt(n, 10);
+        if (isNaN(num) || num < 0) num = 1;
+        var s = (num < 10 ? "0" : "") + String(num);
+        var out = "";
+        for (var i = 0; i < s.length; i++) {
+            var d = parseInt(s.charAt(i), 10);
+            out += isNaN(d) ? s.charAt(i) : BN_DIGITS[d];
+        }
+        return out;
+    }
+
+    function unlockHierarchy(item) {
+        var lockedNodes = [];
+        try {
+            if (item.locked) {
+                lockedNodes.push(item);
+                item.locked = false;
+            }
+            var p = item.parent;
+            while (p && p.typename !== "Document") {
+                if (typeof p.locked !== "undefined" && p.locked) {
+                    lockedNodes.push(p);
+                    p.locked = false;
+                }
+                p = p.parent;
+            }
+        } catch (e) {}
+        return lockedNodes;
+    }
+
+    function restoreLocks(lockedNodes) {
+        for (var i = lockedNodes.length - 1; i >= 0; i--) {
+            try {
+                lockedNodes[i].locked = true;
+            } catch (e) {}
+        }
+    }
+
+    /**
+     * Updates Madrasa Bangla name and (if Inner Forma) the 2-digit Bangla forma number.
+     * Matches exact slug text frames while leaving fixed label frames untouched.
+     */
+    function updateDocumentTexts(doc, banglaName, isInner, formaNum) {
+        var updatedMadrasa = 0;
+        var updatedForma = 0;
+        var formaBn = toBanglaTwoDigit(formaNum);
+
+        var reLabel = /(\u09AB\u09B0\u09CD\u09AE\u09BE|dg\u00A9v|\u09A8\u09CB\u099F\s*\u09AB\u09B0\u09CD\u09AE\u09BE|\u09EA\s*\u0995\u09BE\u09B2\u09BE\u09B0|4\s*Kvjvi)/;
+        var reForma = /\u09AB\u09B0\u09CD\u09AE\u09BE/;
+        var reBnTwoDigits = /[\u09E6-\u09EF]{2}/;
+        var reMadrasaSuffix = /^.+?\s*-\s*(\u099C\u09C1[\u09DC\u09A1\u09BC]+\u09BF\s*\u099B\u09BE\u09AA\u09BE|\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099F\u09C1\s*\u09AC\u09CD\u09AF\u09BE\u0995\s*\u099B\u09BE\u09AA\u09BE)$/;
+
+        var frames = doc.textFrames;
+        for (var i = 0; i < frames.length; i++) {
+            var tf = frames[i];
+            var raw = "";
+            try {
+                raw = tf.contents;
+            } catch (e) {
+                continue;
+            }
+
+            var clean = trimStr(raw.replace(/[\r\n]+/g, " "));
+            if (!clean) continue;
+
+            var newText = null;
+            var kind = null;
+
+            if (isInner && reForma.test(clean) && reBnTwoDigits.test(clean)) {
+                newText = clean.replace(reBnTwoDigits, formaBn);
+                kind = "forma";
+            } else if (!reLabel.test(clean)) {
+                var m = clean.match(reMadrasaSuffix);
+                if (m && m[1]) {
+                    newText = banglaName + " - " + m[1];
+                    kind = "madrasa";
+                }
+            }
+
+            if (newText !== null && newText !== clean) {
+                var lockedNodes = unlockHierarchy(tf);
+                try {
+                    tf.contents = newText;
+                    if (kind === "forma") updatedForma++;
+                    if (kind === "madrasa") updatedMadrasa++;
+                } finally {
+                    restoreLocks(lockedNodes);
+                }
+            }
+        }
+
+        return {
+            updatedMadrasa: updatedMadrasa,
+            updatedForma: updatedForma
+        };
+    }
+
+    function pickFolder(promptText, defaultPath) {
+        try {
+            var startFolder = defaultPath ? new Folder(defaultPath) : Folder.desktop;
+            if (!startFolder.exists) startFolder = Folder.desktop;
+            var chosen = startFolder.selectDlg(promptText || "Select Folder");
+            if (!chosen) {
+                return toJson({ ok: false, cancelled: true });
+            }
+            return toJson({ ok: true, path: chosen.fsName });
+        } catch (err) {
+            return toJson({ ok: false, error: String(err) });
+        }
+    }
+
+    function openFolder(folderPath) {
+        try {
+            var f = new Folder(folderPath);
+            if (!f.exists) {
+                return toJson({ ok: false, error: "Folder does not exist." });
+            }
+            f.execute();
+            return toJson({ ok: true });
+        } catch (err) {
+            return toJson({ ok: false, error: String(err) });
+        }
+    }
+
+    function generateSingleFile(paramsJson) {
+        var params = parseJson(paramsJson);
+        if (!params || !params.templatePath || !params.outputPath) {
+            return toJson({ ok: false, error: "Invalid parameters." });
+        }
+
+        var tplFile = new File(params.templatePath);
+        if (!tplFile.exists) {
+            return toJson({ ok: false, error: "Template not found: " + params.templatePath });
+        }
+
+        var outFile = new File(params.outputPath);
+        if (tplFile.fsName === outFile.fsName) {
+            return toJson({ ok: false, error: "Safety stop: output path matches source template." });
+        }
+
+        if (params.overwriteExisting === false && outFile.exists) {
+            return toJson({
+                ok: true,
+                skipped: true,
+                outputPath: outFile.fsName,
+                fileName: outFile.displayName
+            });
+        }
+
+        var outFolder = outFile.parent;
+        if (outFolder && !outFolder.exists) {
+            outFolder.create();
+        }
+
+        var prevInteraction = app.userInteractionLevel;
+        var doc = null;
+        try {
+            app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
+
+            doc = app.open(tplFile);
+            var stats = updateDocumentTexts(
+                doc,
+                trimStr(params.banglaName),
+                Boolean(params.isInner),
+                params.formaNum || 1
+            );
+
+            var saveOpts = new IllustratorSaveOptions();
+            saveOpts.pdfCompatible = Boolean(params.pdfCompatible);
+            saveOpts.compressed = true;
+            saveOpts.embedICCProfile = false;
+            saveOpts.fontSubsetThreshold = 100;
+
+            doc.saveAs(outFile, saveOpts);
+
+            if (!params.keepOpen) {
+                doc.close(SaveOptions.DONOTSAVECHANGES);
+                doc = null;
+            }
+
+            return toJson({
+                ok: true,
+                skipped: false,
+                outputPath: outFile.fsName,
+                fileName: outFile.displayName,
+                updatedMadrasa: stats.updatedMadrasa,
+                updatedForma: stats.updatedForma
+            });
+        } catch (err) {
+            if (doc && !params.keepOpen) {
+                try {
+                    doc.close(SaveOptions.DONOTSAVECHANGES);
+                } catch (e2) {}
+            }
+            return toJson({
+                ok: false,
+                error: String(err),
+                templatePath: params.templatePath
+            });
+        } finally {
+            app.userInteractionLevel = prevInteraction;
+        }
+    }
+
+    return {
+        pickFolder: pickFolder,
+        openFolder: openFolder,
+        generateSingleFile: generateSingleFile,
+        updateDocumentTexts: updateDocumentTexts,
+        toBanglaTwoDigit: toBanglaTwoDigit
+    };
+})();
+var ReadyFileEngine = $.global.ReadyFileEngine;

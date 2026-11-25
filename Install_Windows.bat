@@ -25,14 +25,16 @@ mkdir "%TARGET_DIR%" >nul 2>&1
 :: 3. Copy files
 xcopy /E /I /H /Y /Q "%~dp0*" "%TARGET_DIR%\" >nul 2>&1
 
-:: 4. Copy standalone script to Illustrator presets if present
+:: 4. Copy standalone scripts to Illustrator presets if present
 echo [3/3] Registering menu scripts...
-if exist "%~dp0Forma_Setup_Pro_QuickRun.jsx" (
-    for /d %%D in ("%PROGRAMFILES%\Adobe\Adobe Illustrator*") do (
-        if exist "%%D\Presets" (
-            for /d %%P in ("%%D\Presets\*") do (
-                if exist "%%P\Scripts" (
-                    copy /Y "%~dp0Forma_Setup_Pro_QuickRun.jsx" "%%P\Scripts\" >nul 2>&1
+for %%S in ("Forma_Setup_Pro_QuickRun.jsx" "Ready_File_Generator_QuickRun.jsx") do (
+    if exist "%~dp0%%~S" (
+        for /d %%D in ("%PROGRAMFILES%\Adobe\Adobe Illustrator*") do (
+            if exist "%%D\Presets" (
+                for /d %%P in ("%%D\Presets\*") do (
+                    if exist "%%P\Scripts" (
+                        copy /Y "%~dp0%%~S" "%%P\Scripts\" >nul 2>&1
+                    )
                 )
             )
         )

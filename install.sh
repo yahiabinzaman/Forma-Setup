@@ -47,19 +47,21 @@ else
     rm -rf "$TEMP_DIR"
 fi
 
-# 4. Copy standalone JSX script to Illustrator Presets
+# 4. Copy standalone JSX scripts to Illustrator Presets
 echo -e "\033[0;37m[4/4] Registering standalone menu scripts...\033[0m"
-if [ -f "$TARGET_DIR/Forma_Setup_Pro_QuickRun.jsx" ]; then
-    for app_dir in /Applications/Adobe\ Illustrator*; do
-        if [ -d "$app_dir" ]; then
-            for s_dir in "$app_dir"/Presets.localized/*/Scripts "$app_dir"/Presets/*/Scripts; do
-                if [ -d "$s_dir" ]; then
-                    cp -f "$TARGET_DIR/Forma_Setup_Pro_QuickRun.jsx" "$s_dir/" 2>/dev/null || true
-                fi
-            done
-        fi
-    done
-fi
+for jsx_name in "Forma_Setup_Pro_QuickRun.jsx" "Ready_File_Generator_QuickRun.jsx"; do
+    if [ -f "$TARGET_DIR/$jsx_name" ]; then
+        for app_dir in /Applications/Adobe\ Illustrator*; do
+            if [ -d "$app_dir" ]; then
+                for s_dir in "$app_dir"/Presets.localized/*/Scripts "$app_dir"/Presets/*/Scripts; do
+                    if [ -d "$s_dir" ]; then
+                        cp -f "$TARGET_DIR/$jsx_name" "$s_dir/" 2>/dev/null || true
+                    fi
+                done
+            fi
+        done
+    fi
+done
 
 echo ""
 echo -e "\033[1;32m==========================================================\033[0m"

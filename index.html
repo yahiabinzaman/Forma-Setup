@@ -13,7 +13,7 @@
       <img src="icons/icon-48.png" alt="Logo" class="brand-icon">
       <div class="brand-title">
         <span>Forma Setup Pro</span>
-        <span class="version-badge">v1.2</span>
+        <span class="version-badge">v1.3</span>
       </div>
     </div>
     <div class="header-actions">
@@ -27,7 +27,17 @@
     </div>
   </header>
 
-  <!-- Main Content (Single Clean View) -->
+  <!-- Navigation Tabs -->
+  <nav class="mode-tabs" role="tablist">
+    <button type="button" class="mode-tab-btn active" data-tab="imposition" role="tab" aria-selected="true">
+      ফর্মা সেটআপ ও CTP
+    </button>
+    <button type="button" class="mode-tab-btn" data-tab="readyfiles" role="tab" aria-selected="false">
+      রেডি ফাইল তৈরি (Ready Files)
+    </button>
+  </nav>
+
+  <!-- Main Content -->
   <main class="tab-content">
 
     <!-- Status Banner -->
@@ -35,6 +45,8 @@
       <span id="statusIcon" class="status-dot"></span>
       <span id="statusText">Ready</span>
     </div>
+
+    <div id="tabImposition" class="tab-pane active">
 
     <!-- 1. Diary Size Selection (3 Presets) -->
     <div class="card">
@@ -172,6 +184,136 @@
         <span>সিটিপি রেডি করুন (Prepare for CTP)</span>
       </button>
     </div>
+    </div><!-- /#tabImposition -->
+
+    <!-- Tab 2: Ready File Generator -->
+    <div id="tabReadyFiles" class="tab-pane">
+      <!-- 1. Setup Template Folder & Diary Size -->
+      <div class="card">
+        <div class="card-title">
+          <span>১. টেমপ্লেট ফোল্ডার ও ডায়েরি সাইজ</span>
+          <span class="badge" id="rfBadgeSize">-</span>
+        </div>
+        <div class="rf-path-row">
+          <div id="rfSetupPathDisplay" class="rf-path-display" title="">Setup Folder সিলেক্ট করুন...</div>
+          <button id="rfBtnBrowseSetup" type="button" class="btn-secondary rf-btn-compact">Change</button>
+        </div>
+        <div id="rfSizeBtnGroup" class="rf-size-btn-group">
+          <!-- Populated dynamically -->
+        </div>
+      </div>
+
+      <!-- 2. Madrasa Names -->
+      <div class="card">
+        <div class="card-title">
+          <span>২. মাদ্রাসার নাম (English &amp; বাংলা)</span>
+          <div class="rf-title-actions">
+            <button id="rfBtnAutoBn" type="button" class="btn-secondary rf-btn-xs" title="English নাম থেকে পরিচিত শব্দ বাংলায় অনুমান করবে">Auto বাংলা</button>
+            <button id="rfBtnClearNames" type="button" class="btn-secondary rf-btn-xs">Clear</button>
+          </div>
+        </div>
+        <div class="form-group">
+          <label for="rfInpEnglishName" class="rf-label-split">
+            <span>English Name (ফাইলের নামে @ এর পরে)</span>
+            <span class="rf-label-hint">An Noor Uttara 27</span>
+          </label>
+          <input id="rfInpEnglishName" type="text" placeholder="An Noor Uttara 27" autocomplete="off">
+          <span id="rfEngWarn" class="rf-warn-text" style="display:none;"></span>
+        </div>
+        <div class="form-group">
+          <label for="rfInpBanglaName" class="rf-label-split">
+            <span>বাংলা নাম (ডকুমেন্টের ভেতরে নিচে)</span>
+            <span class="rf-label-hint">আন নূর উত্তরা ২৭</span>
+          </label>
+          <input id="rfInpBanglaName" type="text" placeholder="আন নূর উত্তরা ২৭" autocomplete="off">
+        </div>
+      </div>
+
+      <!-- 3. Templates & Forma Count -->
+      <div class="card">
+        <div class="card-title">
+          <span>৩. ফর্মা ও টেমপ্লেট সিলেকশন</span>
+          <span class="badge badge-green" id="rfBadgeTotalFiles">0 Files</span>
+        </div>
+        <div id="rfTemplateList" class="rf-template-list">
+          <!-- Populated dynamically -->
+        </div>
+        <div class="rf-mini-row">
+          <span>Inner Forma শুরু হবে (Start From):</span>
+          <div class="rf-stepper">
+            <button id="rfBtnStartDec" type="button" class="rf-step-btn">-</button>
+            <input id="rfInpInnerStart" type="number" class="rf-step-input" min="1" max="50" value="1">
+            <button id="rfBtnStartInc" type="button" class="rf-step-btn">+</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- 4. Output Project Folder & Options -->
+      <div class="card">
+        <div class="card-title">
+          <span>৪. প্রজেক্ট ফোল্ডার (Ready File সেভ লোকেশন)</span>
+        </div>
+        <div class="rf-path-row">
+          <div id="rfOutputPathDisplay" class="rf-path-display" title="">প্রজেক্ট ফোল্ডার সিলেক্ট করুন...</div>
+          <button id="rfBtnBrowseOutput" type="button" class="btn-secondary rf-btn-compact">Browse</button>
+        </div>
+        <div class="rf-options-grid">
+          <label class="rf-checkbox-row">
+            <input id="rfChkSubfolder" type="checkbox">
+            <span>@English ফোল্ডারে সেভ</span>
+          </label>
+          <label class="rf-checkbox-row">
+            <input id="rfChkOverwrite" type="checkbox" checked>
+            <span>Overwrite existing</span>
+          </label>
+          <label class="rf-checkbox-row">
+            <input id="rfChkPdfCompat" type="checkbox">
+            <span>PDF Compatible</span>
+          </label>
+          <label class="rf-checkbox-row">
+            <input id="rfChkKeepOpen" type="checkbox">
+            <span>Illustrator-এ খোলা রাখো</span>
+          </label>
+        </div>
+      </div>
+
+      <!-- 5. Live Output Preview -->
+      <div class="card">
+        <div class="card-title">
+          <span>৫. যে ফাইলগুলো তৈরি হবে (Preview)</span>
+        </div>
+        <div id="rfPreviewList" class="rf-preview-list">
+          <div class="rf-preview-empty">ইংরেজি ও বাংলা নাম লিখুন...</div>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div id="rfProgressWrap" class="rf-progress-wrap">
+        <div class="rf-progress-track">
+          <div id="rfProgressFill" class="rf-progress-fill"></div>
+        </div>
+        <div class="rf-progress-label">
+          <span id="rfProgressText">Preparing...</span>
+          <span id="rfProgressCount">0 / 0</span>
+        </div>
+      </div>
+
+      <!-- Actions -->
+      <div class="rf-actions-bar">
+        <button id="rfBtnGenerate" type="button" class="btn-primary" disabled>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path>
+            <polyline points="14 2 14 8 20 8"></polyline>
+            <line x1="12" y1="18" x2="12" y2="12"></line>
+            <line x1="9" y1="15" x2="15" y2="15"></line>
+          </svg>
+          <span>Ready Files তৈরি করুন</span>
+        </button>
+        <button id="rfBtnOpenFolder" type="button" class="btn-success rf-open-folder-btn">
+          <span>Open Folder</span>
+        </button>
+      </div>
+    </div><!-- /#tabReadyFiles -->
 
   </main>
 
