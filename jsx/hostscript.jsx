@@ -242,10 +242,10 @@ $.global.FormaEngine = (function () {
 
     /**
      * Exact User-Specified Column Rotations:
-     * Col 0: 8, 9, 12, 5  -> Dan dike (Right / Clockwise = 270° or -90°)
-     * Col 1: 1, 16, 13, 4 -> Bam dike (Left / Counter-Clockwise = 90°)
-     * Col 2: 2, 15, 14, 3 -> Dan dike (Right / Clockwise = 270° or -90°)
-     * Col 3: 7, 10, 11, 6 -> Bam dike (Left / Counter-Clockwise = 90°)
+     * Col 0: 8, 9, 12, 5  -> Dan dike (Right / Clockwise = 270\u00B0 or -90\u00B0)
+     * Col 1: 1, 16, 13, 4 -> Bam dike (Left / Counter-Clockwise = 90\u00B0)
+     * Col 2: 2, 15, 14, 3 -> Dan dike (Right / Clockwise = 270\u00B0 or -90\u00B0)
+     * Col 3: 7, 10, 11, 6 -> Bam dike (Left / Counter-Clockwise = 90\u00B0)
      */
     var PAGE_ROTATION_16 = {
         8: 270, 9: 270, 12: 270, 5: 270,
@@ -264,11 +264,11 @@ $.global.FormaEngine = (function () {
     /**
      * Album 16-Page Front & Back (Jhuri) Imposition Mapping:
      * Left Sheet (Front):
-     *   Row 1 (Top): Col 0: Page 5 (180°), Col 1: Page 12 (180°), Col 2: Page 9 (180°), Col 3: Page 8 (180°)
-     *   Row 2 (Bot): Col 0: Page 4 (0°),   Col 1: Page 13 (0°),   Col 2: Page 16 (0°),  Col 3: Page 1 (0°)
+     *   Row 1 (Top): Col 0: Page 5 (180\u00B0), Col 1: Page 12 (180\u00B0), Col 2: Page 9 (180\u00B0), Col 3: Page 8 (180\u00B0)
+     *   Row 2 (Bot): Col 0: Page 4 (0\u00B0),   Col 1: Page 13 (0\u00B0),   Col 2: Page 16 (0\u00B0),  Col 3: Page 1 (0\u00B0)
      * Right Sheet (Back):
-     *   Row 1 (Top): Col 0: Page 7 (180°), Col 1: Page 10 (180°), Col 2: Page 11 (180°), Col 3: Page 6 (180°)
-     *   Row 2 (Bot): Col 0: Page 2 (0°),   Col 1: Page 15 (0°),   Col 2: Page 14 (0°),  Col 3: Page 3 (0°)
+     *   Row 1 (Top): Col 0: Page 7 (180\u00B0), Col 1: Page 10 (180\u00B0), Col 2: Page 11 (180\u00B0), Col 3: Page 6 (180\u00B0)
+     *   Row 2 (Bot): Col 0: Page 2 (0\u00B0),   Col 1: Page 15 (0\u00B0),   Col 2: Page 14 (0\u00B0),  Col 3: Page 3 (0\u00B0)
      */
     var ALBUM_TARGETS = {
         1:  { cx: 600,  cy: -732, rot: 0   }, // Left Sheet, Bot, Col 3
@@ -482,7 +482,7 @@ $.global.FormaEngine = (function () {
 
     function updatePlateSlugText(doc, jobNameBn) {
         // Disabled: User manually places job name on plate slug.
-        // Completely disabled to protect artwork text frames (such as poems, titles containing "আলবিদা" or "আল", etc.).
+        // Completely disabled to protect artwork text frames (such as poems, titles containing "\u0986\u09B2\u09AC\u09BF\u09A6\u09BE" or "\u0986\u09B2", etc.).
         return 0;
     }
 
@@ -494,10 +494,10 @@ $.global.FormaEngine = (function () {
         var lower = doc.name.toLowerCase();
         if (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 ||
             lower.indexOf("front & back") !== -1 || lower.indexOf("back to back") !== -1 ||
-            doc.name.indexOf("\u0986\u09B2") !== -1 || // আল
-            doc.name.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // ব্যাক
-            doc.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // জুড়ি
-            doc.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) { // ঝুড়ি
+            doc.name.indexOf("\u0986\u09B2") !== -1 || // \u0986\u09B2
+            doc.name.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // \u09AC\u09CD\u09AF\u09BE\u0995
+            doc.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // \u099C\u09C1\u09DC\u09BF
+            doc.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) { // \u099D\u09C1\u09DC\u09BF
             return true;
         }
 
@@ -517,13 +517,13 @@ $.global.FormaEngine = (function () {
             if (h > w) return true;
         }
 
-        // 4. Check text frame contents (looking for "ব্যাক টু ব্যাক", "আল - ", or "জুড়ি")
+        // 4. Check text frame contents (looking for "\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995", "\u0986\u09B2 - ", or "\u099C\u09C1\u09DC\u09BF")
         try {
             for (var t = 0; t < doc.textFrames.length; t++) {
                 var tc = doc.textFrames[t].contents;
-                if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // ব্যাক টু ব্যাক
-                    tc.indexOf("\u0986\u09B2 -") !== -1 || // আল -
-                    tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // জুড়ি
+                if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // \u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995
+                    tc.indexOf("\u0986\u09B2 -") !== -1 || // \u0986\u09B2 -
+                    tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // \u099C\u09C1\u09DC\u09BF
                     tc.indexOf("Back to Back") !== -1) {
                     return true;
                 }
@@ -676,7 +676,7 @@ $.global.FormaEngine = (function () {
         var bRight = [minX_R, commonTop, maxX_R, commonBottom];
 
         if (!foundL || !foundR) {
-            throw new Error("অ্যালবাম শিটের বাউন্ডস তৈরি করা যায়নি!");
+            throw new Error("\u0985\u09CD\u09AF\u09BE\u09B2\u09AC\u09BE\u09AE \u09B6\u09BF\u099F\u09C7\u09B0 \u09AC\u09BE\u0989\u09A8\u09CD\u09A1\u09B8 \u09A4\u09C8\u09B0\u09BF \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF!");
         }
 
         // 3. Set exactly 2 fitted artboards without modifying or destroying user page groups/masks
@@ -856,14 +856,14 @@ $.global.FormaEngine = (function () {
                 if (!sel || sel.length === 0) {
                     return toJson({
                         success: false,
-                        error: "আপনার ফাইলে " + requiredPages + "-টি পেজ এনে সিলেক্ট (Select) করুন!\nবর্তমানে কোনো অবজেক্ট সিলেক্ট করা নেই।"
+                        error: "\u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09BE\u0987\u09B2\u09C7 " + requiredPages + "-\u099F\u09BF \u09AA\u09C7\u099C \u098F\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F (Select) \u0995\u09B0\u09C1\u09A8!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0995\u09CB\u09A8\u09CB \u0985\u09AC\u099C\u09C7\u0995\u09CD\u099F \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u09A8\u09C7\u0987\u0964"
                     });
                 }
 
                 if (sel.length !== requiredPages) {
                     return toJson({
                         success: false,
-                        error: "ঠিক " + requiredPages + "-টি পেজ সিলেক্ট করুন!\nবর্তমানে সিলেক্ট করা আছে: " + sel.length + " টি।"
+                        error: "\u09A0\u09BF\u0995 " + requiredPages + "-\u099F\u09BF \u09AA\u09C7\u099C \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09C1\u09A8!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u0986\u099B\u09C7: " + sel.length + " \u099F\u09BF\u0964"
                     });
                 }
 
@@ -877,7 +877,7 @@ $.global.FormaEngine = (function () {
                     if (doc.artboards.length < requiredPages) {
                         return toJson({
                             success: false,
-                            error: "ডকুমেন্টে কমপক্ষে " + requiredPages + "-টি আর্টবোর্ড থাকতে হবে!\nবর্তমানে আছে: " + doc.artboards.length + " টি।"
+                            error: "\u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F\u09C7 \u0995\u09AE\u09AA\u0995\u09CD\u09B7\u09C7 " + requiredPages + "-\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0986\u099B\u09C7: " + doc.artboards.length + " \u099F\u09BF\u0964"
                         });
                     }
                 }
@@ -888,30 +888,30 @@ $.global.FormaEngine = (function () {
                 if (params.sectionType === "album_16") {
                     var grid = getAlbum16ArtboardGrid(doc);
                     if (!grid) {
-                        throw new Error("ডকুমেন্টে কমপক্ষে ১৬টি আর্টবোর্ড থাকতে হবে!");
+                        throw new Error("\u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F\u09C7 \u0995\u09AE\u09AA\u0995\u09CD\u09B7\u09C7 \u09E7\u09EC\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!");
                     }
 
                     // Precise physical slot mapping matching Image 3 & UI Preview:
                     var albumMappings = [
                         // Left Sheet (Front Sheet)
-                        // Top Row (180°): Col 0 -> Page 5, Col 1 -> Page 12, Col 2 -> Page 9, Col 3 -> Page 8
+                        // Top Row (180 deg): Col 0 -> Page 5, Col 1 -> Page 12, Col 2 -> Page 9, Col 3 -> Page 8
                         { ab: grid.leftTop[0], pageNum: 5,  rot: 180, name: "05 - Artboard 5" },
                         { ab: grid.leftTop[1], pageNum: 12, rot: 180, name: "12 - Artboard 12" },
                         { ab: grid.leftTop[2], pageNum: 9,  rot: 180, name: "09 - Artboard 9" },
                         { ab: grid.leftTop[3], pageNum: 8,  rot: 180, name: "08 - Artboard 8" },
-                        // Bot Row (0°):   Col 0 -> Page 4, Col 1 -> Page 13, Col 2 -> Page 16, Col 3 -> Page 1
+                        // Bot Row (0 deg):   Col 0 -> Page 4, Col 1 -> Page 13, Col 2 -> Page 16, Col 3 -> Page 1
                         { ab: grid.leftBot[0], pageNum: 4,  rot: 0,   name: "04 - Artboard 4" },
                         { ab: grid.leftBot[1], pageNum: 13, rot: 0,   name: "13 - Artboard 13" },
                         { ab: grid.leftBot[2], pageNum: 16, rot: 0,   name: "16 - Artboard 16" },
                         { ab: grid.leftBot[3], pageNum: 1,  rot: 0,   name: "01 - Artboard 1" },
 
                         // Right Sheet (Back Sheet)
-                        // Top Row (180°): Col 0 -> Page 7, Col 1 -> Page 10, Col 2 -> Page 11, Col 3 -> Page 6
+                        // Top Row (180 deg): Col 0 -> Page 7, Col 1 -> Page 10, Col 2 -> Page 11, Col 3 -> Page 6
                         { ab: grid.rightTop[0], pageNum: 7,  rot: 180, name: "07 - Artboard 7" },
                         { ab: grid.rightTop[1], pageNum: 10, rot: 180, name: "10 - Artboard 10" },
                         { ab: grid.rightTop[2], pageNum: 11, rot: 180, name: "11 - Artboard 11" },
                         { ab: grid.rightTop[3], pageNum: 6,  rot: 180, name: "06 - Artboard 6" },
-                        // Bot Row (0°):   Col 0 -> Page 2, Col 1 -> Page 15, Col 2 -> Page 14, Col 3 -> Page 3
+                        // Bot Row (0 deg):   Col 0 -> Page 2, Col 1 -> Page 15, Col 2 -> Page 14, Col 3 -> Page 3
                         { ab: grid.rightBot[0], pageNum: 2,  rot: 0,   name: "02 - Artboard 2" },
                         { ab: grid.rightBot[1], pageNum: 15, rot: 0,   name: "15 - Artboard 15" },
                         { ab: grid.rightBot[2], pageNum: 14, rot: 0,   name: "14 - Artboard 14" },
@@ -940,7 +940,7 @@ $.global.FormaEngine = (function () {
                 app.redraw();
                 return toJson({
                     success: true,
-                    message: "আলহামদুলিল্লাহ! পেজ ১ হতে " + requiredPages + " নিখুঁতভাবে আপনার চাহিদামতো রোটেশন সহ আর্টবোর্ডে সাজানো হয়েছে।"
+                    message: "\u0986\u09B2\u09B9\u09BE\u09AE\u09A6\u09C1\u09B2\u09BF\u09B2\u09CD\u09B2\u09BE\u09B9! \u09AA\u09C7\u099C \u09E7 \u09B9\u09A4\u09C7 " + requiredPages + " \u09A8\u09BF\u0996\u09C1\u0981\u09A4\u09AD\u09BE\u09AC\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u099A\u09BE\u09B9\u09BF\u09A6\u09BE\u09AE\u09A4\u09CB \u09B0\u09CB\u099F\u09C7\u09B6\u09A8 \u09B8\u09B9 \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7 \u09B8\u09BE\u099C\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7\u0964"
                 });
 
             } catch (ex) {
@@ -951,7 +951,7 @@ $.global.FormaEngine = (function () {
         executePrintDemo: function (sectionType) {
             try {
                 if (app.documents.length === 0) {
-                    return toJson({ success: false, error: "কোনো ডকুমেন্ট খোলা নেই!" });
+                    return toJson({ success: false, error: "\u0995\u09CB\u09A8\u09CB \u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F \u0996\u09CB\u09B2\u09BE \u09A8\u09C7\u0987!" });
                 }
                 var doc = app.activeDocument;
 
@@ -961,7 +961,7 @@ $.global.FormaEngine = (function () {
                     app.executeMenuCommand("Print");
                     return toJson({
                         success: true,
-                        message: "অ্যালবাম ডেমো প্রিন্ট সম্পন্ন (সামনে: " + albSheets.w1 + "x" + albSheets.h1 + " in, পেছনে: " + albSheets.w2 + "x" + albSheets.h2 + " in)।"
+                        message: "\u0985\u09CD\u09AF\u09BE\u09B2\u09AC\u09BE\u09AE \u09A1\u09C7\u09AE\u09CB \u09AA\u09CD\u09B0\u09BF\u09A8\u09CD\u099F \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 (\u09B8\u09BE\u09AE\u09A8\u09C7: " + albSheets.w1 + "x" + albSheets.h1 + " in, \u09AA\u09C7\u099B\u09A8\u09C7: " + albSheets.w2 + "x" + albSheets.h2 + " in)\u0964"
                     });
                 }
 
@@ -1020,7 +1020,7 @@ $.global.FormaEngine = (function () {
 
                 return toJson({
                     success: true,
-                    message: "ডেমো প্রিন্ট সম্পন্ন এবং মূল শিট আর্টবোর্ডে (" + finalW + "x" + finalH + " in) রিস্টোর করা হয়েছে।"
+                    message: "\u09A1\u09C7\u09AE\u09CB \u09AA\u09CD\u09B0\u09BF\u09A8\u09CD\u099F \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 \u098F\u09AC\u0982 \u09AE\u09C2\u09B2 \u09B6\u09BF\u099F \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7 (" + finalW + "x" + finalH + " in) \u09B0\u09BF\u09B8\u09CD\u099F\u09CB\u09B0 \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7\u0964"
                 });
 
             } catch (ex) {
@@ -1031,7 +1031,7 @@ $.global.FormaEngine = (function () {
         restoreFullSheet: function (sectionType) {
             try {
                 if (app.documents.length === 0) {
-                    return toJson({ success: false, error: "কোনো ডকুমেন্ট খোলা নেই!" });
+                    return toJson({ success: false, error: "\u0995\u09CB\u09A8\u09CB \u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F \u0996\u09CB\u09B2\u09BE \u09A8\u09C7\u0987!" });
                 }
                 var doc = app.activeDocument;
 
@@ -1040,7 +1040,7 @@ $.global.FormaEngine = (function () {
                     var albSheets = setupAlbumSheetArtboards(doc);
                     return toJson({
                         success: true,
-                        message: "অ্যালবাম ২টি শিট আর্টবোর্ড (সামনে: " + albSheets.w1 + "x" + albSheets.h1 + " in, পেছনে: " + albSheets.w2 + "x" + albSheets.h2 + " in) ফিট করা হয়েছে।"
+                        message: "\u0985\u09CD\u09AF\u09BE\u09B2\u09AC\u09BE\u09AE \u09E8\u099F\u09BF \u09B6\u09BF\u099F \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 (\u09B8\u09BE\u09AE\u09A8\u09C7: " + albSheets.w1 + "x" + albSheets.h1 + " in, \u09AA\u09C7\u099B\u09A8\u09C7: " + albSheets.w2 + "x" + albSheets.h2 + " in) \u09AB\u09BF\u099F \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7\u0964"
                     });
                 }
 
@@ -1065,7 +1065,7 @@ $.global.FormaEngine = (function () {
 
                 return toJson({
                     success: true,
-                    message: "আর্টবোর্ড সফলভাবে পুরো শিট বাউন্সে (" + finalW + "x" + finalH + " in) ফিট করা হয়েছে।"
+                    message: "\u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u09AA\u09C1\u09B0\u09CB \u09B6\u09BF\u099F \u09AC\u09BE\u0989\u09A8\u09CD\u09B8\u09C7 (" + finalW + "x" + finalH + " in) \u09AB\u09BF\u099F \u0995\u09B0\u09BE \u09B9\u09DF\u09C7\u099B\u09C7\u0964"
                 });
 
             } catch (ex) {
@@ -1168,7 +1168,7 @@ $.global.FormaEngine = (function () {
         executeCtpPrep: function (paramsOrJobName) {
             try {
                 if (app.documents.length === 0) {
-                    return toJson({ success: false, error: "কোনো ডকুমেন্ট খোলা নেই!" });
+                    return toJson({ success: false, error: "\u0995\u09CB\u09A8\u09CB \u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F \u0996\u09CB\u09B2\u09BE \u09A8\u09C7\u0987!" });
                 }
                 var doc = app.activeDocument;
                 var report = [];
@@ -1209,7 +1209,7 @@ $.global.FormaEngine = (function () {
                 }
 
                 if (is4Color) {
-                    report.push("৪-কালার সিএমওয়াইকে: সম্পূর্ণ কালার অক্ষুণ্ণ রাখা হয়েছে");
+                    report.push("\u09EA-\u0995\u09BE\u09B2\u09BE\u09B0 \u09B8\u09BF\u098F\u09AE\u0993\u09DF\u09BE\u0987\u0995\u09C7: \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u0995\u09BE\u09B2\u09BE\u09B0 \u0985\u0995\u09CD\u09B7\u09C1\u09A3\u09CD\u09A3 \u09B0\u09BE\u0996\u09BE \u09B9\u09DF\u09C7\u099B\u09C7");
                 } else {
                     // Remove Magenta & Yellow (Clean for Cyan + Black 2-Color)
                     try {
@@ -1289,7 +1289,7 @@ $.global.FormaEngine = (function () {
                             cleanItemColor(curLyr.pageItems[pi]);
                         }
                     }
-                    report.push("২-কালার: ম্যাজেন্টা ও ইয়েলো অপসারিত (" + cleanedColors + ")");
+                    report.push("\u09E8-\u0995\u09BE\u09B2\u09BE\u09B0: \u09AE\u09CD\u09AF\u09BE\u099C\u09C7\u09A8\u09CD\u099F\u09BE \u0993 \u0987\u09DF\u09C7\u09B2\u09CB \u0985\u09AA\u09B8\u09BE\u09B0\u09BF\u09A4 (" + cleanedColors + ")");
                 }
 
                 // 4. Embed all Linked Images (safely iterate backwards)
@@ -1303,8 +1303,8 @@ $.global.FormaEngine = (function () {
                         embedMissing++;
                     }
                 }
-                var embedReport = "লিংকড ফাইল: " + embedCount + " টি এম্বেড সম্পন্ন";
-                if (embedMissing > 0) embedReport += " (" + embedMissing + " টি লিংক মিসিং)";
+                var embedReport = "\u09B2\u09BF\u0982\u0995\u09A1 \u09AB\u09BE\u0987\u09B2: " + embedCount + " \u099F\u09BF \u098F\u09AE\u09CD\u09AC\u09C7\u09A1 \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8";
+                if (embedMissing > 0) embedReport += " (" + embedMissing + " \u099F\u09BF \u09B2\u09BF\u0982\u0995 \u09AE\u09BF\u09B8\u09BF\u0982)";
                 report.push(embedReport);
 
                 // 5. Safe Text Outlining (Native DOM iteration - preserves all clipping masks & frames)
@@ -1315,12 +1315,12 @@ $.global.FormaEngine = (function () {
                         outlineCount++;
                     } catch (eRem) {}
                 }
-                report.push("টেক্সট: সম্পূর্ণ ফন্ট আউটলাইন সম্পন্ন (" + outlineCount + " টি)");
+                report.push("\u099F\u09C7\u0995\u09CD\u09B8\u099F: \u09B8\u09AE\u09CD\u09AA\u09C2\u09B0\u09CD\u09A3 \u09AB\u09A8\u09CD\u099F \u0986\u0989\u099F\u09B2\u09BE\u0987\u09A8 \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8 (" + outlineCount + " \u099F\u09BF)");
 
                 app.redraw();
                 return toJson({
                     success: true,
-                    message: "সিটিপি প্রস্তুতি সম্পন্ন!\n• " + report.join("\n• ")
+                    message: "\u09B8\u09BF\u099F\u09BF\u09AA\u09BF \u09AA\u09CD\u09B0\u09B8\u09CD\u09A4\u09C1\u09A4\u09BF \u09B8\u09AE\u09CD\u09AA\u09A8\u09CD\u09A8!\n\u2022 " + report.join("\n\u2022 ")
                 });
 
             } catch (ex) {

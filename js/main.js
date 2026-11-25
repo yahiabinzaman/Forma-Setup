@@ -304,8 +304,8 @@
         if (callback) callback();
       } else {
         var extRoot = csInterface.getSystemPath(SystemPath.EXTENSION);
-        var jsxPath = (extRoot + "/jsx/hostscript.jsx").replace(/\\/g, "/");
-        csInterface.evalScript('$.evalFile("' + jsxPath + '")', function () {
+        var jsxPath = (extRoot + "/jsx/hostscript.jsx").replace(/\\/g, "/").replace(/^\/([A-Za-z]:)/, "$1");
+        csInterface.evalScript('$.evalFile(' + JSON.stringify(jsxPath) + ')', function () {
           if (callback) callback();
         });
       }

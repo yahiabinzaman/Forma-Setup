@@ -10,7 +10,7 @@
     "use strict";
 
     if (app.documents.length === 0) {
-        alert("কোনো ডকুমেন্ট খোলা নেই!\nদয়া করে ফর্মা ডকুমেন্ট ওপেন করুন।");
+        alert("\u0995\u09CB\u09A8\u09CB \u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F \u0996\u09CB\u09B2\u09BE \u09A8\u09C7\u0987!\n\u09A6\u09DF\u09BE \u0995\u09B0\u09C7 \u09AB\u09B0\u09CD\u09AE\u09BE \u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F \u0993\u09AA\u09C7\u09A8 \u0995\u09B0\u09C1\u09A8\u0964");
         return;
     }
 
@@ -140,7 +140,7 @@
             var bRight = [minX_R, commonTop, maxX_R, commonBottom];
 
             if (!foundL || !foundR) {
-                throw new Error("অ্যালবাম শিটের বাউন্ডস তৈরি করা যায়নি!");
+                throw new Error("\u0985\u09CD\u09AF\u09BE\u09B2\u09AC\u09BE\u09AE \u09B6\u09BF\u099F\u09C7\u09B0 \u09AC\u09BE\u0989\u09A8\u09CD\u09A1\u09B8 \u09A4\u09C8\u09B0\u09BF \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF!");
             }
 
             while (doc.artboards.length > 1) {
@@ -196,6 +196,6 @@
         app.redraw();
 
     } catch (ex) {
-        alert("ত্রুটি: " + ex.message);
+        alert("\u09A4\u09CD\u09B0\u09C1\u099F\u09BF: " + ex.message);
     }
 })();

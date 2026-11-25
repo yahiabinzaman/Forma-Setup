@@ -60,11 +60,12 @@ var SystemPath = {
 
 CSInterface.prototype.getSystemPath = function(pathType) {
     var path = decodeURI(window.__adobe_cep__ ? window.__adobe_cep__.getSystemPath(pathType) : "");
-    var OSVersion = (this.hostEnvironment && this.hostEnvironment.OSVersion) ? this.hostEnvironment.OSVersion : (navigator.platform || "");
-    if (OSVersion.indexOf("Windows") >= 0 || OSVersion.indexOf("Win") >= 0) {
-        path = path.replace("file:///", "");
+    var platform = (typeof navigator !== "undefined" && navigator.platform) ? navigator.platform : "";
+    var isWin = (platform.indexOf("Win") >= 0) || /^file:\/\/\/[A-Za-z]:/i.test(path) || /^[A-Za-z]:[\\/]/.test(path);
+    if (isWin) {
+        path = path.replace(/^file:\/\/\//i, "").replace(/\\/g, "/").replace(/^\/([A-Za-z]:)/, "$1");
     } else {
-        path = path.replace("file://", "");
+        path = path.replace(/^file:\/\//i, "");
     }
     return path;
 };

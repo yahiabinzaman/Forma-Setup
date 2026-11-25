@@ -35,38 +35,46 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 if ($scriptDir -and (Test-Path "$scriptDir\CSXS\manifest.xml")) {
     Write-Host "[2/4] Installing from local source files..." -ForegroundColor Gray
     if (Test-Path $targetDir) { Remove-Item -Recurse -Force $targetDir }
-    Copy-Item -Path $scriptDir -Destination $targetDir -Recurse -Force
+    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+    Get-ChildItem -Path $scriptDir -Force | Where-Object { $_.Name -ne ".git" -and $_.Name -ne ".DS_Store" } | ForEach-Object {
+        Copy-Item -Path $_.FullName -Destination $targetDir -Recurse -Force
+    }
 } else {
     Write-Host "[2/4] Downloading ColorLab Forma Setup Pro from GitHub..." -ForegroundColor Cyan
     $tempZip = "$env:TEMP\Forma-Setup-main.zip"
     $tempExtract = "$env:TEMP\Forma-Setup-extract"
     if (Test-Path $tempExtract) { Remove-Item -Recurse -Force $tempExtract }
-    
+
     [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     $url = "https://github.com/yahiabinzaman/Forma-Setup/archive/refs/heads/main.zip"
     Invoke-WebRequest -Uri $url -OutFile $tempZip -UseBasicParsing
-    
+
     Write-Host "[3/4] Extracting and deploying extension..." -ForegroundColor Gray
     Expand-Archive -Path $tempZip -DestinationPath $tempExtract -Force
-    
+
     $extractedFolder = Get-ChildItem -Path $tempExtract | Select-Object -First 1
     if ($extractedFolder) {
         if (Test-Path $targetDir) { Remove-Item -Recurse -Force $targetDir }
         Copy-Item -Path $extractedFolder.FullName -Destination $targetDir -Recurse -Force
     }
-    
+
     # Cleanup
     Remove-Item -Force $tempZip -ErrorAction SilentlyContinue
     Remove-Item -Recurse -Force $tempExtract -ErrorAction SilentlyContinue
 }
 
-# 4. Copy standalone JSX scripts to Illustrator Presets if available
+# 4. Copy standalone JSX scripts to Documents\Adobe Scripts and Illustrator Presets if writable
 Write-Host "[4/4] Registering standalone menu scripts..." -ForegroundColor Gray
-$jsxNames = @("Forma_Setup_Pro_QuickRun.jsx", "Ready_File_Generator_QuickRun.jsx")
+$userScripts = Join-Path ([Environment]::GetFolderPath("MyDocuments")) "Adobe Scripts"
+if (!(Test-Path $userScripts)) {
+    New-Item -ItemType Directory -Path $userScripts -Force | Out-Null
+}
+$jsxNames = @("Forma_Setup_Pro_QuickRun.jsx", "Ready_File_Generator_QuickRun.jsx", "Print_Demo_BackToBack.jsx")
 $aiPaths = Get-ChildItem -Path "C:\Program Files\Adobe" -Filter "Adobe Illustrator*" -Directory -ErrorAction SilentlyContinue
 foreach ($jsxName in $jsxNames) {
     $jsxSource = "$targetDir\$jsxName"
     if (Test-Path $jsxSource) {
+        Copy-Item -Path $jsxSource -Destination $userScripts -Force -ErrorAction SilentlyContinue
         foreach ($ai in $aiPaths) {
             $presetScripts = Get-ChildItem -Path "$($ai.FullName)\Presets" -Recurse -Filter "Scripts" -Directory -ErrorAction SilentlyContinue
             foreach ($sDir in $presetScripts) {
@@ -81,7 +89,6 @@ Write-Host "==========================================================" -Foregro
 Write-Host " [SUCCESS] ColorLab Forma Setup Pro installed successfully!" -ForegroundColor Green
 Write-Host " Restart Adobe Illustrator and open:" -ForegroundColor Yellow
 Write-Host " Window > Extensions > ColorLab Forma Setup Pro" -ForegroundColor White
-Write-Host " (Or File > Scripts > Forma_Setup_Pro_QuickRun)" -ForegroundColor White
+Write-Host " (Or File > Scripts > Forma_Setup_Pro_QuickRun / Ready_File_Generator_QuickRun)" -ForegroundColor White
 Write-Host "==========================================================" -ForegroundColor Green
 Write-Host ""
-

@@ -18,14 +18,14 @@
     var sel = doc.selection;
 
     if (!sel || (sel.length !== 16 && sel.length !== 8)) {
-        alert("দয়া করে খেয়াল করুন:\nঠিক ১৬-টি (অথবা ৮-টি) পেজ গ্রুপ সিলেক্ট থাকতে হবে!\nবর্তমানে সিলেক্ট করা আছে: " + (sel ? sel.length : 0) + " টি।");
+        alert("\u09A6\u09DF\u09BE \u0995\u09B0\u09C7 \u0996\u09C7\u09DF\u09BE\u09B2 \u0995\u09B0\u09C1\u09A8:\n\u09A0\u09BF\u0995 \u09E7\u09EC-\u099F\u09BF (\u0985\u09A5\u09AC\u09BE \u09EE-\u099F\u09BF) \u09AA\u09C7\u099C \u0997\u09CD\u09B0\u09C1\u09AA \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u0986\u099B\u09C7: " + (sel ? sel.length : 0) + " \u099F\u09BF\u0964");
         return;
     }
 
     var requiredPages = sel.length;
 
     if (doc.artboards.length < requiredPages) {
-        alert("ডকুমেন্টে কমপক্ষে " + requiredPages + "-টি আর্টবোর্ড থাকতে হবে!\nবর্তমানে আছে: " + doc.artboards.length + " টি।");
+        alert("\u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F\u09C7 \u0995\u09AE\u09AA\u0995\u09CD\u09B7\u09C7 " + requiredPages + "-\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0986\u099B\u09C7: " + doc.artboards.length + " \u099F\u09BF\u0964");
         return;
     }
 
@@ -212,10 +212,10 @@
     };
 
     // User exact column rotation:
-    // 8-9-12-5  -> Dan (Right = 270°)
-    // 1-16-13-4 -> Bam (Left = 90°)
-    // 2-15-14-3 -> Dan (Right = 270°)
-    // 7-10-11-6 -> Bam (Left = 90°)
+    // 8-9-12-5  -> Dan (Right = 270 deg)
+    // 1-16-13-4 -> Bam (Left = 90 deg)
+    // 2-15-14-3 -> Dan (Right = 270 deg)
+    // 7-10-11-6 -> Bam (Left = 90 deg)
     var PAGE_ROTATION_16 = {
         8: 270, 9: 270, 12: 270, 5: 270,
         1: 90,  16: 90, 13: 90,  4: 90,
@@ -367,7 +367,7 @@
         }
 
         app.redraw();
-        alert("আলহামদুলিল্লাহ!\nঅ্যালবাম ১৬-টি পেজ নিখুঁতভাবে আপনার চাহিদামতো রোটেশন সহ প্লেটে সাজানো হয়েছে!");
+        alert("\u0986\u09B2\u09B9\u09BE\u09AE\u09A6\u09C1\u09B2\u09BF\u09B2\u09CD\u09B2\u09BE\u09B9!\n\u0985\u09CD\u09AF\u09BE\u09B2\u09AC\u09BE\u09AE \u09E7\u09EC-\u099F\u09BF \u09AA\u09C7\u099C \u09A8\u09BF\u0996\u09C1\u0981\u09A4\u09AD\u09BE\u09AC\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u099A\u09BE\u09B9\u09BF\u09A6\u09BE\u09AE\u09A4\u09CB \u09B0\u09CB\u099F\u09C7\u09B6\u09A8 \u09B8\u09B9 \u09AA\u09CD\u09B2\u09C7\u099F\u09C7 \u09B8\u09BE\u099C\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7!");
         return;
     }
 
@@ -381,5 +381,5 @@
     }
 
     app.redraw();
-    alert("আলহামদুলিল্লাহ!\n১৬-টি পেজ সফলভাবে আপনার সুনির্দিষ্ট কলাম রোটেশন অনুযায়ী প্লেটে নিখুঁতভাবে সাজানো হয়েছে!");
+    alert("\u0986\u09B2\u09B9\u09BE\u09AE\u09A6\u09C1\u09B2\u09BF\u09B2\u09CD\u09B2\u09BE\u09B9!\n\u09E7\u09EC-\u099F\u09BF \u09AA\u09C7\u099C \u09B8\u09AB\u09B2\u09AD\u09BE\u09AC\u09C7 \u0986\u09AA\u09A8\u09BE\u09B0 \u09B8\u09C1\u09A8\u09BF\u09B0\u09CD\u09A6\u09BF\u09B7\u09CD\u099F \u0995\u09B2\u09BE\u09AE \u09B0\u09CB\u099F\u09C7\u09B6\u09A8 \u0985\u09A8\u09C1\u09AF\u09BE\u09DF\u09C0 \u09AA\u09CD\u09B2\u09C7\u099F\u09C7 \u09A8\u09BF\u0996\u09C1\u0981\u09A4\u09AD\u09BE\u09AC\u09C7 \u09B8\u09BE\u099C\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7!");
 })();
