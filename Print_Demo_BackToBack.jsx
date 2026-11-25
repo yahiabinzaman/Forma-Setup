@@ -26,8 +26,23 @@
         try { app.executeMenuCommand("showAll"); } catch (e) {}
 
         var lower = doc.name.toLowerCase();
-        var isAlbum = (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 || lower.indexOf("front & back") !== -1);
-        if (!isAlbum && doc.artboards.length === 16) {
+        var isJhuri = (lower.indexOf("jhuri") !== -1 || lower.indexOf("front & back") !== -1 || lower.indexOf("font & back") !== -1);
+        var isBackToBack = (lower.indexOf("back to back") !== -1 || lower.indexOf("back-to-back") !== -1);
+        if (!isJhuri && !isBackToBack && doc.textFrames) {
+            try {
+                for (var tf = 0; tf < doc.textFrames.length; tf++) {
+                    var tc = doc.textFrames[tf].contents;
+                    if (tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || tc.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) {
+                        isJhuri = true; break;
+                    }
+                    if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1) {
+                        isBackToBack = true; break;
+                    }
+                }
+            } catch (eTxt) {}
+        }
+        var isAlbum = isJhuri || (!isBackToBack && lower.indexOf("album") !== -1);
+        if (!isAlbum && !isBackToBack && doc.artboards.length === 16) {
             var r0 = doc.artboards[0].artboardRect;
             if (Math.abs(r0[1] - r0[3]) > Math.abs(r0[2] - r0[0])) isAlbum = true;
         }

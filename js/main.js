@@ -354,10 +354,7 @@
         try {
           var result = JSON.parse(res);
           if (result.success) {
-            var msg = (state.sectionType === "album_16")
-              ? "অ্যালবাম ডেমো প্রিন্ট সম্পন্ন (Front & Back আলাদা শিট আর্টবোর্ড প্রস্তুত)।"
-              : "ডেমো প্রিন্ট সম্পন্ন এবং মূল শিট আর্টবোর্ডে রিস্টোর করা হয়েছে।";
-            showStatus(msg, "success", 7000);
+            showStatus(result.message || "ডেমো প্রিন্ট সম্পন্ন।", "success", 7000);
           } else {
             showStatus(result.error || "প্রিন্ট ডেমো ব্যর্থ হয়েছে।", "error", 7000);
           }
@@ -380,10 +377,7 @@
         try {
           var result = JSON.parse(res);
           if (result.success) {
-            var msg = (state.sectionType === "album_16")
-              ? "অ্যালবাম ২টি শিট (Front & Back) আলাদা গ্রুপ ও আর্টবোর্ডে ফিট করা হয়েছে।"
-              : "আর্টবোর্ড সফলভাবে পুরো শিট বাউন্সে ফিট করা হয়েছে।";
-            showStatus(msg, "success", 5000);
+            showStatus(result.message || "আর্টবোর্ড সফলভাবে শিট বাউন্সে ফিট করা হয়েছে।", "success", 5000);
           } else {
             showStatus(result.error || "শিট ফিট ব্যর্থ হয়েছে।", "error", 6000);
           }
@@ -562,7 +556,10 @@
             renderPreview();
             updateCtpUI();
             if (!quiet) {
-              var typeLabel = (state.sectionType === "album_16") ? "অ্যালবাম (Album 16)" : "ইনার/নোট (Inner 16)";
+              var typeLabel = "ইনার (Inner 16)";
+              if (state.sectionType === "album_16") typeLabel = "অ্যালবাম (Album 16)";
+              else if (state.sectionType === "album_8") typeLabel = "অ্যালবাম (Album 8)";
+              else if (state.sectionType === "note_16") typeLabel = "নোট (Note 16)";
               showStatus("ডকুমেন্ট ডিটেক্টেড: " + info.name + " [" + typeLabel + "]", "info", 3000);
             }
           }

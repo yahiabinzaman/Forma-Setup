@@ -486,50 +486,111 @@ $.global.FormaEngine = (function () {
         return 0;
     }
 
-    function isAlbumDoc(doc, sectionType) {
+    function isBackToBackSheet(doc) {
         if (!doc) return false;
-        if (sectionType === "album_16" || sectionType === "album_8") return true;
-
-        // 1. Check document name
         var lower = doc.name.toLowerCase();
-        if (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 ||
-            lower.indexOf("front & back") !== -1 || lower.indexOf("back to back") !== -1 ||
-            doc.name.indexOf("\u0986\u09B2") !== -1 || // \u0986\u09B2
-            doc.name.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // \u09AC\u09CD\u09AF\u09BE\u0995
-            doc.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // \u099C\u09C1\u09DC\u09BF
-            doc.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) { // \u099D\u09C1\u09DC\u09BF
+        if (lower.indexOf("back to back") !== -1 || lower.indexOf("back-to-back") !== -1) {
             return true;
         }
-
-        // 2. Check artboard names (e.g. "Front Sheet", "Back Sheet", or "05 - Artboard 5" at top-left)
-        for (var a = 0; a < doc.artboards.length; a++) {
-            var abName = doc.artboards[a].name.toLowerCase();
-            if (abName.indexOf("front sheet") !== -1 || abName.indexOf("back sheet") !== -1) {
-                return true;
-            }
-        }
-
-        // 3. Check 16 artboards portrait orientation (Album pages are portrait, inner/note sheets are landscape)
-        if (doc.artboards.length === 16) {
-            var r = doc.artboards[0].artboardRect;
-            var w = Math.abs(r[2] - r[0]);
-            var h = Math.abs(r[1] - r[3]);
-            if (h > w) return true;
-        }
-
-        // 4. Check text frame contents (looking for "\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995", "\u0986\u09B2 - ", or "\u099C\u09C1\u09DC\u09BF")
         try {
             for (var t = 0; t < doc.textFrames.length; t++) {
                 var tc = doc.textFrames[t].contents;
-                if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || // \u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995
-                    tc.indexOf("\u0986\u09B2 -") !== -1 || // \u0986\u09B2 -
-                    tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || // \u099C\u09C1\u09DC\u09BF
-                    tc.indexOf("Back to Back") !== -1) {
+                if (tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 ||
+                    tc.toLowerCase().indexOf("back to back") !== -1) {
                     return true;
                 }
             }
         } catch (e) {}
+        return false;
+    }
 
+    function isJhuriNameOrText(doc) {
+        if (!doc) return false;
+        var lower = doc.name.toLowerCase();
+        if (lower.indexOf("jhuri") !== -1 ||
+            lower.indexOf("front & back") !== -1 ||
+            lower.indexOf("font & back") !== -1 ||
+            doc.name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
+            doc.name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) {
+            return true;
+        }
+        try {
+            for (var t = 0; t < doc.textFrames.length; t++) {
+                var tc = doc.textFrames[t].contents;
+                if (tc.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
+                    tc.indexOf("\u099C\u09C1\u09A1\u09BC\u09BF") !== -1 ||
+                    tc.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1 ||
+                    tc.indexOf("\u09AB\u09CD\u09B0\u09A8\u09CD\u099F \u09B8\u09BE\u0987\u09A1") !== -1 ||
+                    tc.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u09B8\u09BE\u0987\u09A1") !== -1 ||
+                    tc.indexOf("d\u00AB\u203AU mvBW") !== -1 ||
+                    tc.indexOf("e\u00A8vK mvBW") !== -1) {
+                    return true;
+                }
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function isFourColorDoc(doc, sectionType) {
+        if (!doc) return false;
+        var lower = doc.name.toLowerCase();
+        if (lower.indexOf("4 color") !== -1 || lower.indexOf("4color") !== -1 || lower.indexOf("album") !== -1) {
+            return true;
+        }
+        try {
+            for (var t = 0; t < doc.textFrames.length; t++) {
+                var tc = doc.textFrames[t].contents;
+                if (tc.indexOf("\u09EA \u0995\u09BE\u09B2\u09BE\u09B0") !== -1 ||
+                    tc.indexOf("4 Kvjvi") !== -1) {
+                    return true;
+                }
+            }
+        } catch (e) {}
+        if (lower.indexOf("note") !== -1 || lower.indexOf("forma") !== -1 ||
+            doc.name.indexOf("\u09A8\u09CB\u099F") !== -1 || doc.name.indexOf("\u09AB\u09B0\u09CD\u09AE\u09BE") !== -1) {
+            return false;
+        }
+        return (sectionType === "album_16" || sectionType === "album_8");
+    }
+
+    function isAlbumDoc(doc, sectionType) {
+        if (!doc) return false;
+
+        // 1. Explicit Jhuri / Front & Back (2 separate sheets)
+        if (isJhuriNameOrText(doc)) {
+            return true;
+        }
+
+        // 2. Explicit Back-To-Back (always 1 single full sheet, never 2-sheet Jhuri)
+        if (isBackToBackSheet(doc)) {
+            return false;
+        }
+
+        // 3. Explicit Note or Inner name without Jhuri is single-sheet
+        var lower = doc.name.toLowerCase();
+        if (lower.indexOf("note") !== -1 || lower.indexOf("inner") !== -1 ||
+            doc.name.indexOf("\u09A8\u09CB\u099F") !== -1 || doc.name.indexOf("\u0987\u09A8\u09BE\u09B0") !== -1) {
+            return false;
+        }
+
+        // 4. Artboard geometry check for untitled/renamed Jhuri 16-artboard layouts
+        if (doc.artboards.length === 16) {
+            var r = doc.artboards[0].artboardRect;
+            var w = Math.abs(r[2] - r[0]);
+            var h = Math.abs(r[1] - r[3]);
+            if (h > w) {
+                var xs = [];
+                for (var a = 0; a < doc.artboards.length; a++) {
+                    var ar = doc.artboards[a].artboardRect;
+                    xs.push((ar[0] + ar[2]) / 2);
+                }
+                xs.sort(function (x, y) { return x - y; });
+                if ((xs[8] - xs[7]) > w * 0.15) return true;
+            }
+        }
+
+        // 5. Fallback to sectionType ONLY when doc has no conflicting signals
+        if (sectionType === "album_16") return true;
         return false;
     }
 
@@ -1121,36 +1182,16 @@ $.global.FormaEngine = (function () {
 
                 var detectedType = "inner_16";
                 var lower = name.toLowerCase();
-                if (lower.indexOf("album") !== -1 || lower.indexOf("jhuri") !== -1 ||
-                    lower.indexOf("front & back") !== -1 || lower.indexOf("back to back") !== -1 ||
-                    name.indexOf("\u0986\u09B2") !== -1 || name.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995") !== -1 ||
-                    name.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 || name.indexOf("\u099D\u09C1\u09DC\u09BF") !== -1) {
-                    detectedType = "album_16";
-                } else if (lower.indexOf("note") !== -1 || name.indexOf("\u09A8\u09CB\u099F") !== -1) {
+                if (lower.indexOf("note") !== -1 || name.indexOf("\u09A8\u09CB\u099F") !== -1) {
                     detectedType = "note_16";
-                } else if (lower.indexOf("inner") !== -1 || name.indexOf("\u0987\u09A8\u09BE\u09B0") !== -1) {
+                } else if (isJhuriNameOrText(doc)) {
+                    detectedType = "album_16";
+                } else if (lower.indexOf("4 color") !== -1 || lower.indexOf("4color") !== -1 || lower.indexOf("album") !== -1) {
+                    detectedType = (abCount === 8) ? "album_8" : "album_16";
+                } else if (isBackToBackSheet(doc) || lower.indexOf("inner") !== -1 || name.indexOf("\u0987\u09A8\u09BE\u09B0") !== -1 || lower.indexOf("forma") !== -1) {
                     detectedType = "inner_16";
-                } else if (doc.artboards.length === 16) {
-                    var r0 = doc.artboards[0].artboardRect;
-                    var w0 = Math.abs(r0[2] - r0[0]);
-                    var h0 = Math.abs(r0[1] - r0[3]);
-                    if (h0 > w0) detectedType = "album_16";
-                }
-
-                // Also check text frame contents if still inner_16
-                if (detectedType === "inner_16") {
-                    try {
-                        for (var tScan = 0; tScan < doc.textFrames.length; tScan++) {
-                            var tcScan = doc.textFrames[tScan].contents;
-                            if (tcScan.indexOf("\u09AC\u09CD\u09AF\u09BE\u0995 \u099F\u09C1 \u09AC\u09CD\u09AF\u09BE\u0995") !== -1 || 
-                                tcScan.indexOf("\u0986\u09B2 -") !== -1 || 
-                                tcScan.indexOf("\u099C\u09C1\u09DC\u09BF") !== -1 ||
-                                tcScan.indexOf("Back to Back") !== -1) {
-                                detectedType = "album_16";
-                                break;
-                            }
-                        }
-                    } catch (eScan) {}
+                } else if (isAlbumDoc(doc, "")) {
+                    detectedType = "album_16";
                 }
 
                 return toJson({
@@ -1201,11 +1242,7 @@ $.global.FormaEngine = (function () {
                 } else if (colorMode === "2color") {
                     is4Color = false;
                 } else {
-                    // Auto: Album and "4 Color" docs are 4-Color; Inner and Note are 2-Color
-                    var docLower = doc.name.toLowerCase();
-                    if (isAlbumDoc(doc, sectionType) || docLower.indexOf("4 color") !== -1 || docLower.indexOf("album") !== -1 || docLower.indexOf("jhuri") !== -1) {
-                        is4Color = true;
-                    }
+                    is4Color = isFourColorDoc(doc, sectionType);
                 }
 
                 if (is4Color) {
