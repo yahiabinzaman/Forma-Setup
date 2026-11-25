@@ -159,6 +159,8 @@
     if (state.sectionType === "album_16") {
       if (els.diagramTitle) els.diagramTitle.textContent = "অ্যালবাম লেআউট প্রিভিউ (ঝুড়ি / Front & Back)";
       if (els.diagramInfo) els.diagramInfo.textContent = "১৬ আর্টবোর্ড (লম্বা লম্বি)";
+      var albumHint = document.getElementById("setupHintText");
+      if (albumHint) albumHint.textContent = "পেজ ১-১৬ সিলেক্ট করে বাটনে ক্লিক করুন। স্বয়ংক্রিয়ভাবে আর্টবোর্ডে সাজানো হবে।";
       els.impositionGridPreview.style.display = "flex";
       els.impositionGridPreview.style.flexDirection = "column";
       els.impositionGridPreview.style.gap = "6px";
@@ -251,7 +253,19 @@
     var pageOffset = (state.formaBatch - 1) * 16;
 
     if (els.diagramTitle) {
-      els.diagramTitle.textContent = is8Page ? "অ্যালবাম লেআউট প্রিভিউ (৮ পেজ)" : "ইনার / নোট লেআউট প্রিভিউ (৪x৪)";
+      if (is8Page) els.diagramTitle.textContent = "অ্যালবাম লেআউট প্রিভিউ (৮ পেজ)";
+      else if (state.sectionType === "note_16") els.diagramTitle.textContent = "নোট লেআউট প্রিভিউ (১৬ পেজ / ৮ স্প্রেড)";
+      else els.diagramTitle.textContent = "ইনার লেআউট প্রিভিউ (৪x৪)";
+    }
+    var hintEl = document.getElementById("setupHintText");
+    if (hintEl) {
+      if (state.sectionType === "note_16") {
+        hintEl.textContent = "১৬টি সিঙ্গেল পেজ অথবা ৮টি ডাবল-পেজ স্প্রেড (বা ১টি স্প্রেড) সিলেক্ট করে ক্লিক করুন।";
+      } else if (is8Page) {
+        hintEl.textContent = "৮টি পেজ সিলেক্ট করে বাটনে ক্লিক করুন। স্বয়ংক্রিয়ভাবে আর্টবোর্ডে সাজানো হবে।";
+      } else {
+        hintEl.textContent = "পেজ ১-১৬ সিলেক্ট করে বাটনে ক্লিক করুন। স্বয়ংক্রিয়ভাবে আর্টবোর্ডে সাজানো হবে।";
+      }
     }
     els.diagramInfo.textContent = totalSlots + " Artboards (4x" + (is8Page ? 2 : 4) + ")";
     els.impositionGridPreview.style.display = "grid";

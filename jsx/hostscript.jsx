@@ -44,11 +44,10 @@ $.global.FormaEngine = (function () {
     }
 
     /**
-     * Finds the True Page Trim Bounds [left, top, right, bottom] of a page group.
-     * Prevents oversized bleed images, unclipped elements, or stray points from
-     * throwing off the page alignment. Allows standard offset bleed (up to 40 pt).
+     * Finds the True Page Trim Bounds [left, top, right, bottom] of a page group
+     * without falling back to geometricBounds when no candidate matches target size.
      */
-    function getPageTrimBounds(item, abW, abH) {
+    function getPageTrimCandidate(item, abW, abH) {
         if (!item) return null;
 
         // 1. If the item itself is a clipped group, its clipping path is the definitive page boundary
@@ -122,7 +121,50 @@ $.global.FormaEngine = (function () {
             }
         }
 
-        // 3. Fallback to geometricBounds of the entire item
+        return null;
+    }
+
+    function getPageTrimBounds(item, abW, abH) {
+        if (!item) return null;
+        var cand = getPageTrimCandidate(item, abW, abH);
+        return cand !== null ? cand : item.geometricBounds;
+    }
+
+    function getSpreadTrimBounds(item, targetW, targetH, singleAbW, singleAbH) {
+        if (!item) return null;
+        var cand = getPageTrimCandidate(item, targetW, targetH);
+        if (cand !== null) return cand;
+
+        // If the spread is a GroupItem wrapping 2 individual single-page groups, unite their trim bounds
+        if (item.typename === "GroupItem" && item.pageItems && item.pageItems.length >= 2 && singleAbW && singleAbH) {
+            var matched = [];
+            for (var i = 0; i < item.pageItems.length; i++) {
+                var ch = item.pageItems[i];
+                var chCand = getPageTrimCandidate(ch, singleAbW, singleAbH);
+                if (chCand === null && ch.typename === "GroupItem" && ch.clipped && ch.pageItems) {
+                    for (var k = 0; k < ch.pageItems.length; k++) {
+                        if (ch.pageItems[k].clipping) {
+                            chCand = ch.pageItems[k].geometricBounds;
+                            break;
+                        }
+                    }
+                }
+                if (chCand !== null) {
+                    matched.push(chCand);
+                }
+            }
+            if (matched.length >= 2) {
+                var uL = matched[0][0], uT = matched[0][1], uR = matched[0][2], uB = matched[0][3];
+                for (var m = 1; m < matched.length; m++) {
+                    if (matched[m][0] < uL) uL = matched[m][0];
+                    if (matched[m][1] > uT) uT = matched[m][1];
+                    if (matched[m][2] > uR) uR = matched[m][2];
+                    if (matched[m][3] < uB) uB = matched[m][3];
+                }
+                return [uL, uT, uR, uB];
+            }
+        }
+
         return item.geometricBounds;
     }
 
@@ -478,6 +520,56 @@ $.global.FormaEngine = (function () {
         var curTrimCY = (bAfter[1] + bAfter[3]) / 2;
 
         item.translate(abTargetCX - curTrimCX, abTargetCY - curTrimCY);
+    }
+
+    function placeDoubleSpreadOnPair(item, abTop, abBot, rotAngle) {
+        var rTop = abTop.artboardRect;
+        var rBot = abBot.artboardRect;
+        var singleW = Math.abs(rTop[2] - rTop[0]);
+        var singleH = Math.abs(rTop[1] - rTop[3]);
+
+        var combLeft = Math.min(rTop[0], rBot[0]);
+        var combTop = Math.max(rTop[1], rBot[1]);
+        var combRight = Math.max(rTop[2], rBot[2]);
+        var combBottom = Math.min(rTop[3], rBot[3]);
+
+        var targetW = Math.abs(combRight - combLeft);
+        var targetH = Math.abs(combTop - combBottom);
+
+        if (rotAngle && rotAngle !== 0) {
+            item.rotate(rotAngle, true, true, true, true, Transformation.CENTER);
+        }
+
+        var targetCX = (combLeft + combRight) / 2;
+        var targetCY = (combTop + combBottom) / 2;
+
+        var bAfter = getSpreadTrimBounds(item, targetW, targetH, singleW, singleH);
+        var curTrimCX = (bAfter[0] + bAfter[2]) / 2;
+        var curTrimCY = (bAfter[1] + bAfter[3]) / 2;
+
+        item.translate(targetCX - curTrimCX, targetCY - curTrimCY);
+    }
+
+    function isNoteSpreadCandidate(doc, sel) {
+        if (!doc || !sel || doc.artboards.length < 16) return false;
+        if (sel.length !== 8 && sel.length !== 1) return false;
+        var first = sel[0];
+        if (!first) return false;
+        var gb = getItemBounds(first);
+        var itemW = Math.abs(gb[2] - gb[0]);
+        var itemH = Math.abs(gb[1] - gb[3]);
+        var r0 = doc.artboards[0].artboardRect;
+        var abW = Math.abs(r0[2] - r0[0]);
+        var abH = Math.abs(r0[1] - r0[3]);
+        // Upright 2-page Note spread has width roughly 2 * abH (e.g. 12.2in vs 6.1in * 2)
+        if (itemW > itemH && Math.abs(itemW - 2 * abH) <= 60) {
+            return true;
+        }
+        var lower = doc.name.toLowerCase();
+        if (lower.indexOf("note") !== -1 || doc.name.indexOf("\u09A8\u09CB\u099F") !== -1) {
+            return true;
+        }
+        return false;
     }
 
     function updatePlateSlugText(doc, jobNameBn) {
@@ -912,20 +1004,70 @@ $.global.FormaEngine = (function () {
                 var sel = getUniqueRootSelectedItems(rawSel);
 
                 var is8Page = (params.sectionType === "album_8");
+                var isNoteSpreadMode = false;
+                if (params.sectionType === "note_16" && doc.artboards.length >= 16 && (sel.length === 8 || sel.length === 1)) {
+                    isNoteSpreadMode = true;
+                } else if (params.sectionType === "inner_16" && (sel.length === 8 || sel.length === 1) && isNoteSpreadCandidate(doc, sel)) {
+                    isNoteSpreadMode = true;
+                }
+
                 var requiredPages = is8Page ? 8 : 16;
 
                 if (!sel || sel.length === 0) {
+                    var reqLabel = (params.sectionType === "note_16") ? "16 (or 8/1 spread)" : String(requiredPages);
                     return toJson({
                         success: false,
-                        error: "\u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09BE\u0987\u09B2\u09C7 " + requiredPages + "-\u099F\u09BF \u09AA\u09C7\u099C \u098F\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F (Select) \u0995\u09B0\u09C1\u09A8!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0995\u09CB\u09A8\u09CB \u0985\u09AC\u099C\u09C7\u0995\u09CD\u099F \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u09A8\u09C7\u0987\u0964"
+                        error: "\u0986\u09AA\u09A8\u09BE\u09B0 \u09AB\u09BE\u0987\u09B2\u09C7 " + reqLabel + "-\u099F\u09BF \u09AA\u09C7\u099C \u098F\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F (Select) \u0995\u09B0\u09C1\u09A8!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u0995\u09CB\u09A8\u09CB \u0985\u09AC\u099C\u09C7\u0995\u09CD\u099F \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u09A8\u09C7\u0987\u0964"
+                    });
+                }
+
+                if (isNoteSpreadMode) {
+                    var spreads = sortSelected16Pages(sel);
+                    if (spreads.length === 1) {
+                        var masterSpread = spreads[0];
+                        for (var dupIdx = 0; dupIdx < 7; dupIdx++) {
+                            spreads.push(masterSpread.duplicate(masterSpread, ElementPlacement.PLACEATEND));
+                        }
+                    }
+                    var grid16 = getSpatiallySortedArtboards(doc, 16);
+                    if (!grid16 || grid16.length < 16) {
+                        return toJson({
+                            success: false,
+                            error: "\u09A1\u0995\u09C1\u09AE\u09C7\u09A8\u09CD\u099F\u09C7 \u0995\u09AE\u09AA\u0995\u09CD\u09B7\u09C7 16-\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1 \u09A5\u09BE\u0995\u09A4\u09C7 \u09B9\u09AC\u09C7!"
+                        });
+                    }
+                    // 8 Double-Page Spreads across the 4x4 grid (Col 0: 270 deg, Col 1: 90 deg, Col 2: 270 deg, Col 3: 90 deg)
+                    var spreadSlots = [
+                        { topIdx: 0,  botIdx: 4,  rot: 270 },
+                        { topIdx: 8,  botIdx: 12, rot: 270 },
+                        { topIdx: 1,  botIdx: 5,  rot: 90  },
+                        { topIdx: 9,  botIdx: 13, rot: 90  },
+                        { topIdx: 2,  botIdx: 6,  rot: 270 },
+                        { topIdx: 10, botIdx: 14, rot: 270 },
+                        { topIdx: 3,  botIdx: 7,  rot: 90  },
+                        { topIdx: 11, botIdx: 15, rot: 90  }
+                    ];
+                    for (var sIdx = 0; sIdx < spreadSlots.length; sIdx++) {
+                        var sp = spreadSlots[sIdx];
+                        placeDoubleSpreadOnPair(spreads[sIdx], grid16[sp.topIdx], grid16[sp.botIdx], sp.rot);
+                    }
+                    app.redraw();
+                    return toJson({
+                        success: true,
+                        message: "\u0986\u09B2\u09B9\u09BE\u09AE\u09A6\u09C1\u09B2\u09BF\u09B2\u09CD\u09B2\u09BE\u09B9! \u09A8\u09CB\u099F \u09EE-\u099F\u09BF \u09A1\u09BE\u09AC\u09B2-\u09AA\u09C7\u099C \u09B8\u09CD\u09AA\u09CD\u09B0\u09C7\u09A1 \u09A8\u09BF\u0996\u09C1\u0981\u09A4\u09AD\u09BE\u09AC\u09C7 \u09E7\u09EC-\u099F\u09BF \u0986\u09B0\u09CD\u099F\u09AC\u09CB\u09B0\u09CD\u09A1\u09C7 \u09B8\u09BE\u099C\u09BE\u09A8\u09CB \u09B9\u09DF\u09C7\u099B\u09C7\u0964"
                     });
                 }
 
                 if (sel.length !== requiredPages) {
-                    return toJson({
-                        success: false,
-                        error: "\u09A0\u09BF\u0995 " + requiredPages + "-\u099F\u09BF \u09AA\u09C7\u099C \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09C1\u09A8!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u0986\u099B\u09C7: " + sel.length + " \u099F\u09BF\u0964"
-                    });
+                    // Allow 1 No Size Note Forma (8 artboards, 8 single pages) even when note_16 is selected
+                    if (params.sectionType === "note_16" && sel.length === 8 && doc.artboards.length === 8) {
+                        requiredPages = 8;
+                    } else {
+                        return toJson({
+                            success: false,
+                            error: "\u09A0\u09BF\u0995 " + requiredPages + "-\u099F\u09BF \u09AA\u09C7\u099C \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09C1\u09A8!\n\u09AC\u09B0\u09CD\u09A4\u09AE\u09BE\u09A8\u09C7 \u09B8\u09BF\u09B2\u09C7\u0995\u09CD\u099F \u0995\u09B0\u09BE \u0986\u099B\u09C7: " + sel.length + " \u099F\u09BF\u0964"
+                        });
+                    }
                 }
 
                 // If Album 16, clean template grid numbers (protecting user's selected artwork!)
