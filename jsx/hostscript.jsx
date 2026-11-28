@@ -739,11 +739,117 @@ $.global.FormaEngine = (function () {
         return false;
     }
 
-    function setupAlbumSheetArtboards(doc) {
-        for (var l = 0; l < doc.layers.length; l++) {
-            doc.layers[l].locked = false;
-            doc.layers[l].visible = true;
+    function isGuideOnlyItem(it) {
+        if (!it) return false;
+        try {
+            if (it.guides && !it.clipping) return true;
+            if (it.typename === "CompoundPathItem" && isCompoundGuide(it)) return true;
+            if (it.typename === "GroupItem" && it.pageItems && it.pageItems.length > 0 && !it.clipped) {
+                for (var i = 0; i < it.pageItems.length; i++) {
+                    if (!isGuideOnlyItem(it.pageItems[i])) return false;
+                }
+                return true;
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function collectSheetArtworkItems(doc) {
+        var collected = [];
+        forEachLayer(doc.layers, function (curLay) {
+            if (!curLay || !curLay.pageItems) return;
+            for (var i = 0; i < curLay.pageItems.length; i++) {
+                var it = curLay.pageItems[i];
+                if (!it || isGuideOnlyItem(it)) continue;
+                try {
+                    if (it.locked) it.locked = false;
+                    if (it.hidden) it.hidden = false;
+                } catch (eUnl) {}
+                collected.push({ item: it, layer: curLay });
+            }
+        });
+        return collected;
+    }
+
+    function groupSheetEntries(entries, groupName) {
+        if (!entries || entries.length === 0) return null;
+        if (entries.length === 1 && entries[0].item && entries[0].item.typename === "GroupItem") {
+            if (groupName) {
+                try { entries[0].item.name = groupName; } catch (eNm) {}
+            }
+            return entries[0].item;
         }
+        var bestLayer = entries[0].layer;
+        var bestCount = 0;
+        for (var c = 0; c < entries.length; c++) {
+            var lyr = entries[c].layer;
+            var cnt = 0;
+            for (var k = 0; k < entries.length; k++) {
+                if (entries[k].layer === lyr) cnt++;
+            }
+            if (cnt > bestCount) {
+                bestCount = cnt;
+                bestLayer = lyr;
+            }
+        }
+        try {
+            if (bestLayer.locked) bestLayer.locked = false;
+            if (!bestLayer.visible) bestLayer.visible = true;
+        } catch (eLay) {}
+
+        var grp = bestLayer.groupItems.add();
+        if (groupName) {
+            try { grp.name = groupName; } catch (eGrpNm) {}
+        }
+        var moved = 0;
+        for (var i = 0; i < entries.length; i++) {
+            var it = entries[i].item;
+            if (!it || it === grp) continue;
+            try {
+                it.move(grp, ElementPlacement.PLACEATEND);
+                moved++;
+            } catch (eMov) {
+                try {
+                    it.move(grp, ElementPlacement.INSIDE);
+                    moved++;
+                } catch (eMov2) {}
+            }
+        }
+        if (moved === 0) {
+            try { grp.remove(); } catch (eRem) {}
+            return null;
+        }
+        return grp;
+    }
+
+    function groupSingleSheetArtwork(doc) {
+        var entries = collectSheetArtworkItems(doc);
+        return groupSheetEntries(entries, "Sheet Group");
+    }
+
+    function groupAlbumSheetsArtwork(doc, dividerX) {
+        var entries = collectSheetArtworkItems(doc);
+        var leftEntries = [];
+        var rightEntries = [];
+        for (var i = 0; i < entries.length; i++) {
+            var e = entries[i];
+            try {
+                var gb = e.item.geometricBounds;
+                var cx = (gb[0] + gb[2]) / 2;
+                if (cx < dividerX) leftEntries.push(e);
+                else rightEntries.push(e);
+            } catch (eGb) {
+                leftEntries.push(e);
+            }
+        }
+        return {
+            frontGroup: groupSheetEntries(leftEntries, "Front Sheet"),
+            backGroup: groupSheetEntries(rightEntries, "Back Sheet")
+        };
+    }
+
+    function setupAlbumSheetArtboards(doc) {
+        unlockLayerTree(doc.layers);
         try { app.executeMenuCommand("unlockAll"); } catch (e) {}
         try { app.executeMenuCommand("showAll"); } catch (e) {}
 
@@ -850,7 +956,7 @@ $.global.FormaEngine = (function () {
             if (!curLay.pageItems) return;
             for (var j = 0; j < curLay.pageItems.length; j++) {
                 var it = curLay.pageItems[j];
-                if (it.guides) continue; // skip ruler guides
+                if (isGuideOnlyItem(it)) continue; // skip ruler guides
                 var gb = it.geometricBounds;
                 var cx = (gb[0] + gb[2]) / 2;
 
@@ -885,7 +991,9 @@ $.global.FormaEngine = (function () {
             throw new Error("\u0985\u09CD\u09AF\u09BE\u09B2\u09AC\u09BE\u09AE \u09B6\u09BF\u099F\u09C7\u09B0 \u09AC\u09BE\u0989\u09A8\u09CD\u09A1\u09B8 \u09A4\u09C8\u09B0\u09BF \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF!");
         }
 
-        // 3. Set exactly 2 fitted artboards without modifying or destroying user page groups/masks
+        // 3. Group Front & Back sheet pages separately, then set 2 fitted artboards
+        groupAlbumSheetsArtwork(doc, DIVIDER_X);
+
         while (doc.artboards.length > 1) {
             doc.artboards[doc.artboards.length - 1].remove();
         }
@@ -1235,20 +1343,21 @@ $.global.FormaEngine = (function () {
                 }
 
                 // 1. Unlock all layers and items (instant native)
-                for (var l = 0; l < doc.layers.length; l++) {
-                    doc.layers[l].locked = false;
-                    doc.layers[l].visible = true;
-                }
+                unlockLayerTree(doc.layers);
                 try { app.executeMenuCommand("unlockAll"); } catch (e) {}
                 try { app.executeMenuCommand("showAll"); } catch (e) {}
 
-                // 2. Keep only 1 artboard, remove the rest
+                // 2. Group all non-guide pages on the sheet together cleanly
+                var sheetGrp = groupSingleSheetArtwork(doc);
+
+                // 3. Keep only 1 artboard, remove the rest
                 while (doc.artboards.length > 1) {
                     doc.artboards[doc.artboards.length - 1].remove();
                 }
                 doc.artboards.setActiveArtboardIndex(0);
+                try { doc.selection = null; } catch (eSel) {}
 
-                // 3. Fit remaining artboard to artwork bounds
+                // 4. Fit remaining artboard to artwork bounds
                 app.executeMenuCommand("Fit Artboard to artwork bounds");
 
                 var rect = doc.artboards[0].artboardRect;
@@ -1314,18 +1423,22 @@ $.global.FormaEngine = (function () {
                 }
 
                 // Unlock layers/items (instant native)
-                for (var l = 0; l < doc.layers.length; l++) {
-                    doc.layers[l].locked = false;
-                    doc.layers[l].visible = true;
-                }
+                unlockLayerTree(doc.layers);
                 try { app.executeMenuCommand("unlockAll"); } catch (e) {}
                 try { app.executeMenuCommand("showAll"); } catch (e) {}
+
+                // Group all non-guide pages together so the full sheet moves as one unit
+                var sheetGrp = groupSingleSheetArtwork(doc);
 
                 while (doc.artboards.length > 1) {
                     doc.artboards[doc.artboards.length - 1].remove();
                 }
                 doc.artboards.setActiveArtboardIndex(0);
+                try { doc.selection = null; } catch (eSel1) {}
                 app.executeMenuCommand("Fit Artboard to artwork bounds");
+                if (sheetGrp) {
+                    try { doc.selection = [sheetGrp]; } catch (eSel2) {}
+                }
                 app.redraw();
 
                 var finalRect = doc.artboards[0].artboardRect;

@@ -27,6 +27,77 @@
         }
     }
 
+    function isCompoundGuide(cpItem) {
+        if (!cpItem || cpItem.clipping || !cpItem.pathItems || cpItem.pathItems.length === 0) return false;
+        for (var k = 0; k < cpItem.pathItems.length; k++) {
+            try { if (!cpItem.pathItems[k].guides) return false; } catch (e) { return false; }
+        }
+        return true;
+    }
+
+    function isGuideOnlyItem(it) {
+        if (!it) return false;
+        try {
+            if (it.guides && !it.clipping) return true;
+            if (it.typename === "CompoundPathItem" && isCompoundGuide(it)) return true;
+            if (it.typename === "GroupItem" && it.pageItems && it.pageItems.length > 0 && !it.clipped) {
+                for (var i = 0; i < it.pageItems.length; i++) {
+                    if (!isGuideOnlyItem(it.pageItems[i])) return false;
+                }
+                return true;
+            }
+        } catch (e) {}
+        return false;
+    }
+
+    function collectSheetArtworkItems(d) {
+        var collected = [];
+        forEachLayer(d.layers, function (curLay) {
+            if (!curLay || !curLay.pageItems) return;
+            for (var i = 0; i < curLay.pageItems.length; i++) {
+                var it = curLay.pageItems[i];
+                if (!it || isGuideOnlyItem(it)) continue;
+                try {
+                    if (it.locked) it.locked = false;
+                    if (it.hidden) it.hidden = false;
+                } catch (eUnl) {}
+                collected.push({ item: it, layer: curLay });
+            }
+        });
+        return collected;
+    }
+
+    function groupSheetEntries(entries, groupName) {
+        if (!entries || entries.length === 0) return null;
+        if (entries.length === 1 && entries[0].item && entries[0].item.typename === "GroupItem") {
+            if (groupName) try { entries[0].item.name = groupName; } catch (eNm) {}
+            return entries[0].item;
+        }
+        var bestLayer = entries[0].layer;
+        var bestCount = 0;
+        for (var c = 0; c < entries.length; c++) {
+            var lyr = entries[c].layer;
+            var cnt = 0;
+            for (var k = 0; k < entries.length; k++) if (entries[k].layer === lyr) cnt++;
+            if (cnt > bestCount) { bestCount = cnt; bestLayer = lyr; }
+        }
+        try {
+            if (bestLayer.locked) bestLayer.locked = false;
+            if (!bestLayer.visible) bestLayer.visible = true;
+        } catch (eLay) {}
+        var grp = bestLayer.groupItems.add();
+        if (groupName) try { grp.name = groupName; } catch (eGrpNm) {}
+        var moved = 0;
+        for (var i = 0; i < entries.length; i++) {
+            var it = entries[i].item;
+            if (!it || it === grp) continue;
+            try { it.move(grp, ElementPlacement.PLACEATEND); moved++; }
+            catch (eMov) { try { it.move(grp, ElementPlacement.INSIDE); moved++; } catch (eMov2) {} }
+        }
+        if (moved === 0) { try { grp.remove(); } catch (eRem) {} return null; }
+        return grp;
+    }
+
     try {
         // 1. Unlock all layers, sublayers, and page items
         forEachLayer(doc.layers, function (lyr) {
@@ -171,7 +242,7 @@
                 if (!curLay.pageItems) return;
                 for (var pi = 0; pi < curLay.pageItems.length; pi++) {
                     var it = curLay.pageItems[pi];
-                    if (it.guides) continue;
+                    if (isGuideOnlyItem(it)) continue;
                     var gb = it.geometricBounds;
                     var cx = (gb[0] + gb[2]) / 2;
 
@@ -204,6 +275,18 @@
                 throw new Error("\u0985\u09CD\u09AF\u09BE\u09B2\u09AC\u09BE\u09AE \u09B6\u09BF\u099F\u09C7\u09B0 \u09AC\u09BE\u0989\u09A8\u09CD\u09A1\u09B8 \u09A4\u09C8\u09B0\u09BF \u0995\u09B0\u09BE \u09AF\u09BE\u09DF\u09A8\u09BF!");
             }
 
+            var allAlbumEntries = collectSheetArtworkItems(doc);
+            var leftEntries = [], rightEntries = [];
+            for (var ae = 0; ae < allAlbumEntries.length; ae++) {
+                try {
+                    var egb = allAlbumEntries[ae].item.geometricBounds;
+                    if (((egb[0] + egb[2]) / 2) < midX) leftEntries.push(allAlbumEntries[ae]);
+                    else rightEntries.push(allAlbumEntries[ae]);
+                } catch (eGb) { leftEntries.push(allAlbumEntries[ae]); }
+            }
+            groupSheetEntries(leftEntries, "Front Sheet");
+            groupSheetEntries(rightEntries, "Back Sheet");
+
             while (doc.artboards.length > 1) {
                 doc.artboards[doc.artboards.length - 1].remove();
             }
@@ -220,11 +303,14 @@
             return;
         }
 
-        // Inner / Note / 4-Color Back-To-Back: 1 big sheet split into left & right halves
+        // Inner / Note / 4-Color Back-To-Back: group all pages together, split left & right halves, then restore
+        var sheetGrp = groupSheetEntries(collectSheetArtworkItems(doc), "Sheet Group");
+
         while (doc.artboards.length > 1) {
             doc.artboards[doc.artboards.length - 1].remove();
         }
         doc.artboards.setActiveArtboardIndex(0);
+        try { doc.selection = null; } catch (eSel1) {}
 
         app.executeMenuCommand("Fit Artboard to artwork bounds");
 
@@ -252,7 +338,11 @@
             doc.artboards[doc.artboards.length - 1].remove();
         }
         doc.artboards.setActiveArtboardIndex(0);
+        try { doc.selection = null; } catch (eSel2) {}
         app.executeMenuCommand("Fit Artboard to artwork bounds");
+        if (sheetGrp) {
+            try { doc.selection = [sheetGrp]; } catch (eSel3) {}
+        }
         app.redraw();
 
     } catch (ex) {
